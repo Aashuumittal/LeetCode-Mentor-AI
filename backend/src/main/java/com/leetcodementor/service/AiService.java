@@ -31,10 +31,10 @@ public class AiService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final int MAX_RETRIES = 5;
-    private static final long RETRY_DELAY_MS = 2000; // 2s between retries
+    private static final long RETRY_DELAY_MS = 5000;// 2s between retries
     private static final String STATUS_PREFIX = "prefetch-status:";
 
-    private final Executor prefetchExecutor = Executors.newFixedThreadPool(8);
+    private final Executor prefetchExecutor = Executors.newFixedThreadPool(2);
 
     // ─── Generate (streaming, Redis-first) ───────────────────────────────────
 

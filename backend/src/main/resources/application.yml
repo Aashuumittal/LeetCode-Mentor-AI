@@ -1,0 +1,39 @@
+server:
+  port: ${SERVER_PORT}
+
+spring:
+  application:
+    name: leetcode-mentor
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+  codec:
+    max-in-memory-size: 10MB
+
+jwt:
+  secret: ${JWT_SECRET:dGhpcy1pcy1hLXZlcnktc2VjdXJlLWFuZC1sb25nLWp3dC1zZWNyZXQta2V5LXRoYXQtaXMtdXNlZC1mb3ItbGVldGNvZGUtbWVudG9yLWFp}
+  access-expiry: ${JWT_ACCESS_EXPIRY:900000} # 15 minutes
+  refresh-expiry: ${JWT_REFRESH_EXPIRY:2592000000} # 30 days
+
+groq:
+  api:
+    key: ${GROQ_API_KEY}
+    url: ${GROQ_API_URL:https://api.groq.com/openai/v1/chat/completions}
+
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:*}

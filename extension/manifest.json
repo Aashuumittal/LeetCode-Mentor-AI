@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "LeetCode Mentor AI",
+  "version": "1.0.0",
+  "description": "AI-powered DSA coach with Progressive Hints, Spaced Repetition Revision, and Code Reviews on LeetCode.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://leetcode.com/*",
+    "http://localhost:9094/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://leetcode.com/problems/*"
+      ],
+      "js": [
+        "utils/storage.js",
+        "utils/token.js",
+        "utils/scraper.js",
+        "api/auth.js",
+        "api/ai.js",
+        "api/progress.js",
+        "api/revision.js",
+        "api/review.js",
+        "api/company.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "LeetCode Mentor AI"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "ui/floating-window.html",
+        "styles.css"
+      ],
+      "matches": [
+        "https://leetcode.com/*"
+      ]
+    }
+  ]
+}

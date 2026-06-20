@@ -1,0 +1,260 @@
+<div id="leetcode-mentor-container" class="mentor-window">
+  <!-- Top bar (Drag Handle) -->
+  <div class="mentor-top-bar" id="mentor-drag-handle">
+    <div class="mentor-logo-title">
+      <span class="mentor-logo">🧠</span>
+      <div class="mentor-titles">
+        <span class="mentor-title">AI Mentor</span>
+        <span class="mentor-subtitle">LeetCode Companion</span>
+      </div>
+    </div>
+    <div class="mentor-controls">
+      <button class="mentor-ctrl-btn" id="mentor-btn-minimize" title="Minimize">−</button>
+      <button class="mentor-ctrl-btn" id="mentor-btn-close" title="Close">×</button>
+    </div>
+  </div>
+
+  <!-- Body Content -->
+  <div class="mentor-body">
+    
+    <!-- LEFT SIDEBAR: Wrapper contains the sliding panel + the always-visible toggle button -->
+    <div class="sidebar-wrapper" id="sidebar-wrapper">
+      <div class="panel" id="panel">
+        <!-- Day Streak -->
+        <div class="streak">
+          <span>Day Streak</span>
+          <div class="fire" id="stat-streak">0 🔥</div>
+        </div>
+
+        <!-- Tree Tabs Menu -->
+        <div class="tabs-menu">
+          <!-- SOLVE Section -->
+          <div class="tree-section active" id="section-solve">
+            <div class="tree-header" data-target="solve-content">
+              <span class="section-indicator pink"></span>
+              <span class="section-icon">📦</span>
+              <span class="section-title">SOLVE</span>
+              <span class="section-arrow">▲</span>
+            </div>
+            <div class="tree-content active" id="solve-content">
+              <div class="tree-line"></div>
+              <button class="item active" id="btn-ai-explain">
+                <span class="item-bullet"></span>
+                <span class="item-icon">💬</span> Explain Question
+              </button>
+              <button class="item" id="btn-approach-bruteforce" data-approach="BRUTEFORCE">
+                <span class="item-bullet"></span>
+                <span class="item-icon">‹/›</span> Brute Force Approach
+              </button>
+              <button class="item" id="btn-approach-optimized" data-approach="OPTIMIZED">
+                <span class="item-bullet"></span>
+                <span class="item-icon">⚡</span> Optimised Approach
+              </button>
+              <button class="item" id="btn-approach-optimal" data-approach="OPTIMAL">
+                <span class="item-bullet"></span>
+                <span class="item-icon">★</span> Optimal Approach
+              </button>
+            </div>
+          </div>
+
+          <!-- REVISE Section -->
+          <div class="tree-section" id="section-revise">
+            <div class="tree-header" data-target="revise-content">
+              <span class="section-indicator blue"></span>
+              <span class="section-icon">🕒</span>
+              <span class="section-title">REVISE</span>
+              <span class="section-arrow">▼</span>
+              <span class="red-dot" id="dot-revise-header" style="display: none;"></span>
+            </div>
+            <div class="tree-content" id="revise-content">
+              <div class="tree-line"></div>
+              <button class="item" id="btn-revise-day3" data-target="revision-day3">
+                <span class="item-bullet"></span>
+                <span class="item-icon">📅</span> 3rd Day Revision
+                <span class="red-dot" id="dot-revise-day3" style="display: none;"></span>
+              </button>
+              <button class="item" id="btn-revise-day7" data-target="revision-day7">
+                <span class="item-bullet"></span>
+                <span class="item-icon">📅</span> 7th Day Revision
+                <span class="red-dot" id="dot-revise-day7" style="display: none;"></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- CODE REVIEW Section -->
+          <div class="tree-section" id="section-review">
+            <div class="tree-header" id="btn-tab-code-review">
+              <span class="section-indicator teal"></span>
+              <span class="section-icon">‹/›</span>
+              <span class="section-title">CODE REVIEW</span>
+            </div>
+          </div>
+
+          <!-- MARK AS SOLVED Sidebar Button -->
+          <button class="solve-action-btn" id="btn-mark-solved-sidebar">
+            <span class="solve-action-icon">🏆</span> MARK AS SOLVED
+          </button>
+        </div>
+
+        <!-- Bottom Buttons inside Sidebar Panel -->
+        <div class="bottom">
+          <button id="btn-profile-reset" class="bottom-btn">Reset Progress</button>
+          <button id="btn-profile-logout" class="bottom-btn">Logout</button>
+        </div>
+      </div>
+
+      <!-- Toggle button lives OUTSIDE .panel, directly in the wrapper, so it never gets clipped or hidden -->
+      <button id="toggle" class="toggle">❮</button>
+    </div>
+
+    <!-- RIGHT PANEL: Display/Content Area -->
+    <div class="display-panel" id="display-panel">
+      <!-- Problem Context Header -->
+      <div class="problem-info-header" id="problem-info-header">
+        <h2 id="current-problem-title">Loading problem...</h2>
+        <span id="current-problem-difficulty" class="badge">EASY</span>
+      </div>
+
+      <!-- MAIN APP DISPLAY VIEWS -->
+      <div class="app-display-views">
+        
+        <!-- VIEW 1: AI Assistant Console (SOLVE outputs) -->
+        <div class="display-view active" id="view-console">
+          <div class="output-container">
+            <div class="output-header">
+              <span id="output-title">AI Assistant Console</span>
+              <button class="text-btn" id="btn-clear-output" title="Clear">Clear</button>
+            </div>
+            <div id="company-tags-container" class="company-tags-container hidden"></div>
+            <div class="output-body markdown-body" id="ai-output-box">
+              Click an approach or "Explain Question" from the sidebar menu to begin.
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW 2: Revision Queue View -->
+        <div class="display-view" id="view-revision">
+          <h3 id="revision-view-title">3rd Day Revision Queue</h3>
+          <p class="section-desc">Keep your concepts fresh. Review problems due for revision today.</p>
+          <div id="revision-items-list" class="revision-list">
+            <!-- Injected dynamically -->
+            <p class="empty-msg">No revisions due today.</p>
+          </div>
+        </div>
+
+        <!-- VIEW 3: Code Review Input & Results -->
+        <div class="display-view" id="view-code-review">
+          <h3>AI Code Review</h3>
+          <p class="section-desc">Paste your code below or use the code scraped from the LeetCode editor to perform a detailed review.</p>
+          
+          <div class="code-review-editor-container">
+            <textarea id="code-review-textarea" class="code-textarea" placeholder="Paste your code snippet here..."></textarea>
+          </div>
+          
+          <div class="code-review-actions-bar">
+            <button class="primary-btn" id="btn-run-code-review">Review Code</button>
+          </div>
+
+          <div class="output-container" style="margin-top: 14px; flex-grow: 1;">
+            <div class="output-header">
+              <span>Code Review Report</span>
+              <button class="text-btn" id="btn-clear-review-output" title="Clear">Clear</button>
+            </div>
+            <div class="output-body markdown-body" id="code-review-output-box">
+              Your detailed complexity analysis, logic issues, and performance optimizations will appear here.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- AUTHENTICATION VIEW (Overlay, shown when logged out) -->
+      <div id="mentor-auth-panel" class="auth-panel" style="display: none;">
+        <div class="auth-tabs">
+          <button id="auth-tab-login-btn" class="auth-tab-btn active">Login</button>
+          <button id="auth-tab-register-btn" class="auth-tab-btn">Register</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="mentor-login-form" class="auth-form active">
+          <h3>Welcome Back</h3>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="login-email" required placeholder="name@domain.com">
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="login-password" required placeholder="••••••••">
+          </div>
+          <button type="submit" class="primary-btn">Sign In</button>
+          <p class="auth-error-msg" id="login-error"></p>
+        </form>
+
+        <!-- Register Form -->
+        <form id="mentor-register-form" class="auth-form">
+          <h3>Create Account</h3>
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="reg-name" required placeholder="Alex Mercer">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="reg-email" required placeholder="name@domain.com">
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="reg-password" required placeholder="Min 6 characters">
+          </div>
+          <div class="form-group">
+            <label>Preferred Language</label>
+            <select id="reg-language">
+              <option value="JAVA">Java</option>
+              <option value="PYTHON">Python</option>
+              <option value="CPP">C++</option>
+              <option value="JAVASCRIPT">JavaScript</option>
+            </select>
+          </div>
+          <button type="submit" class="primary-btn">Sign Up</button>
+          <p class="auth-error-msg" id="reg-error"></p>
+        </form>
+      </div>
+
+      <!-- BOTTOM DOCK: Inside display-panel, only visible in SOLVE tab -->
+      <div class="dock" id="dock">
+        <button class="dock-btn enabled" id="btn-dock-hint1">
+          <span class="dock-btn-icon">💡</span> Hint 1
+        </button>
+        <button class="dock-btn" id="btn-dock-hint2" disabled>
+          <span class="dock-btn-icon">💡</span> Hint 2 <span class="lock-text">🔒</span>
+        </button>
+        <button class="dock-btn" id="btn-dock-hint3" disabled>
+          <span class="dock-btn-icon">💡</span> Hint 3 <span class="lock-text">🔒</span>
+        </button>
+        <button class="dock-btn" id="btn-dock-hint4" disabled>
+          <span class="dock-btn-icon">💡</span> Hint 4 <span class="lock-text">🔒</span>
+        </button>
+        <button class="dock-btn" id="btn-dock-solution" disabled>
+          <span class="dock-btn-icon">✔️</span> Solution <span class="lock-text">🔒</span>
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Congratulations Overlay -->
+  <div id="congrats-overlay" class="congrats-overlay hidden">
+    <div class="congrats-content">
+      <div class="congrats-emoji">🎉</div>
+      <h2 class="congrats-title">Congratulations!</h2>
+      <p class="congrats-subtitle">Problem Marked as Solved</p>
+      <div class="congrats-streak-box">
+        <span class="congrats-streak-label">Current Streak</span>
+        <span class="congrats-streak-value" id="congrats-streak-value">0 Days</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resize Handle -->
+  <div class="mentor-resize-handle" id="mentor-resize-se"></div>
+</div>

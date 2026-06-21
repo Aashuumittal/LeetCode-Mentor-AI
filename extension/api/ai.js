@@ -6,74 +6,50 @@ const AiApi = {
         throw new Error('User is not authenticated. Please log in.');
       }
 
-      const response = await fetch(`${BASE_URL}/api/ai/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'text/event-stream'
-        },
-        body: JSON.stringify(requestData),
-        signal: signal
-      });
-
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson.message || `Server responded with ${response.status}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
       while (true) {
-        const { value, done } = await reader.read();
-        if (done) {
-          break;
+        if (signal.aborted) {
+          console.log('AI generation poll was aborted.');
+          return;
         }
 
-        buffer += decoder.decode(value, { stream: true });
-        
-        // Process lines from stream
-        let lines = buffer.split('\n');
-        // Keep the last partial line in buffer
-        buffer = lines.pop();
+        const response = await fetch(`${BASE_URL}/api/ai/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(requestData),
+          signal: signal
+        });
 
-        for (const line of lines) {
-          if (line.startsWith('data:')) {
-            let rawValue = line.substring(5);
-            // Strip trailing carriage return if present
-            if (rawValue.endsWith('\r')) {
-              rawValue = rawValue.slice(0, -1);
-            }
-            // The server JSON-encodes each token (e.g. "\" world\"") so that
-            // spaces and whitespace-only tokens survive transport intact.
-            // Do NOT heuristically strip a leading space here — a real token
-            // can legitimately start with one, and stripping it corrupts text.
-            let dataToken;
-            try {
-              dataToken = JSON.parse(rawValue.trim());
-            } catch (e) {
-              // Fallback for any legacy/non-JSON payload: trim only the
-              // single mandatory space the SSE spec adds after "data:".
-              dataToken = rawValue.startsWith(' ') ? rawValue.substring(1) : rawValue;
-            }
-            if (dataToken === '[DONE]') {
-              onComplete();
-              return;
-            }
-            onToken(dataToken);
-          } else if (line.startsWith('event: done')) {
-            onComplete();
-            return;
-          } else if (line.startsWith('event: error')) {
-            onError(new Error('AI stream generation error.'));
-            return;
-          }
+        if (!response.ok) {
+          const errJson = await response.json().catch(() => ({}));
+          throw new Error(errJson.message || `Server responded with ${response.status}`);
+        }
+
+        const resJson = await response.json();
+        if (!resJson.success) {
+          throw new Error(resJson.message || 'Failed to retrieve AI response');
+        }
+
+        const data = resJson.data;
+        if (data.status === 'SUCCESS') {
+          onToken(data.content);
+          onComplete();
+          return;
+        } else if (data.status === 'FAILED') {
+          throw new Error('All AI providers failed to generate this suggestion.');
+        } else {
+          // Status is PENDING. Wait 2 seconds before polling again.
+          await new Promise((resolve, reject) => {
+            const timeout = setTimeout(resolve, 2000);
+            signal.addEventListener('abort', () => {
+              clearTimeout(timeout);
+              reject(new DOMException('Aborted', 'AbortError'));
+            });
+          });
         }
       }
-
-      onComplete();
     } catch (error) {
       if (error.name === 'AbortError') {
         console.log('AI generation stream was aborted intentionally.');

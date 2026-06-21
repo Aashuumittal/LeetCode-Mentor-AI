@@ -15,6 +15,12 @@ public class GroqConfig {
     @Value("${groq.api.key}")
     private String apiKey;
 
+    @Value("${openrouter.api.url:https://openrouter.ai/api/v1/chat/completions}")
+    private String openRouterUrl;
+
+    @Value("${openrouter.api.key:}")
+    private String openRouterKey;
+
     @Bean
     public WebClient groqWebClient() {
         // Configure WebClient with 10MB buffer size to prevent buffer overflow issues.
@@ -26,6 +32,22 @@ public class GroqConfig {
                 .baseUrl(apiUrl)
                 .defaultHeader("Content-Type", "application/json")
                 .defaultHeader("Authorization", "Bearer " + apiKey)
+                .exchangeStrategies(strategies)
+                .build();
+    }
+
+    @Bean
+    public WebClient openRouterWebClient() {
+        final ExchangeStrategies strategies = ExchangeStrategies.builder()
+                .codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
+                .build();
+
+        return WebClient.builder()
+                .baseUrl(openRouterUrl)
+                .defaultHeader("Content-Type", "application/json")
+                .defaultHeader("Authorization", "Bearer " + openRouterKey)
+                .defaultHeader("HTTP-Referer", "https://github.com/AashuuMittal/LeetCode-Mentor-AI")
+                .defaultHeader("X-Title", "LeetCode Mentor AI")
                 .exchangeStrategies(strategies)
                 .build();
     }

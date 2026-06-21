@@ -3,6 +3,7 @@
 [![Java Version](https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-brightgreen?style=for-the-badge&logo=springboot)](https://spring.io/projects/spring-boot)
 [![Groq API](https://img.shields.io/badge/Groq_API-Llama_3.3_70B-blueviolet?style=for-the-badge&logo=meta)](https://groq.com/)
+[![OpenRouter](https://img.shields.io/badge/OpenRouter-DeepSeek_R1-orange?style=for-the-badge&logo=openrouter)](https://openrouter.ai/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-Cache-red?style=for-the-badge&logo=redis)](https://redis.io/)
 [![Chrome Extension](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-yellow?style=for-the-badge&logo=googlechrome)](https://developer.chrome.com/docs/extensions/mv3/intro/)
@@ -14,9 +15,12 @@ An AI-powered Chrome Extension integrated directly into LeetCode that helps you 
 
 ## 📖 Overview
 
-**LeetCode Mentor AI** acts as a personal, interactive DSA tutor right inside your browser. Instead of spoiling questions with immediate solutions, the extension utilizes a progressive hint system powered by **Llama 3.3 70B via the Groq API** to guide you step-by-step. 
+**LeetCode Mentor AI** acts as a personal, interactive DSA tutor right inside your browser. Instead of spoiling questions with immediate solutions, the extension utilizes a progressive hint system powered by a resilient, multi-provider AI orchestration layer:
+1. **Tier 1 (Primary)**: Groq API with `llama-3.3-70b-versatile`
+2. **Tier 2 (Fallback)**: Groq API with `deepseek-r1-distill-llama-70b`
+3. **Tier 3 (Final)**: OpenRouter API with `deepseek/deepseek-r1`
 
-With a premium glassmorphic user interface, the system tracks your daily coding streak, schedules solved problems into a Spaced Repetition Revision Queue, provides detailed code reviews, and aggregates company-wise interview frequencies so you can prepare efficiently.
+The system includes automated retries with exponential backoffs (2s, 4s, 8s) to bypass rate limits and prefetch failures. Content is cached in Redis with rich provider metadata (provider, model, timestamps) and stored in PostgreSQL for state tracking. A sleek glassmorphic frontend polls the backend for completion to ensure a highly responsive, error-free user experience.
 
 ---
 
@@ -124,6 +128,8 @@ Configure these variables inside your root `.env` file (copied from `.env.exampl
 | `JWT_ACCESS_EXPIRY` | `900000` | Expiration time for access token in ms (15 mins). |
 | `JWT_REFRESH_EXPIRY` | `2592000000` | Expiration time for refresh token in ms (30 days). |
 | `GROQ_API_KEY` | `your_groq_api_key` | API Key to authenticate requests with Groq Cloud. |
+| `OPENROUTER_API_KEY` | `your_openrouter_api_key` | API Key to authenticate requests with OpenRouter. |
+| `OPENROUTER_API_URL` | `https://openrouter.ai/api/v1/chat/completions` | API completions URL for OpenRouter. |
 | `CORS_ALLOWED_ORIGINS` | `chrome-extension://...` | Allowed Chrome Extension Origin ID for CORS security. |
 
 ---
@@ -141,7 +147,7 @@ Configure these variables inside your root `.env` file (copied from `.env.exampl
 ### 🤖 AI Generation & Prefetching (`/api/ai`)
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/api/ai/generate` | Initiates SSE stream for conceptual, hints, solution generation. |
+| `POST` | `/api/ai/generate` | Retreive cached suggestion or status (SUCCESS/PENDING/FAILED) for polling. |
 | `POST` | `/api/ai/prefetch` | Trigger asynchronous backend background generation for all hints. |
 | `GET` | `/api/ai/prefetch-status`| Fetch real-time progress of ongoing prefetch tasks. |
 

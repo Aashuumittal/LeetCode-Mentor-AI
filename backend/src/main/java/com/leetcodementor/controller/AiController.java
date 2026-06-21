@@ -2,16 +2,14 @@ package com.leetcodementor.controller;
 
 import com.leetcodementor.dto.request.AiGenerateRequest;
 import com.leetcodementor.dto.request.PrefetchRequest;
+import com.leetcodementor.dto.response.AiGenerateResponse;
 import com.leetcodementor.dto.response.ApiResponse;
 import com.leetcodementor.enums.Language;
 import com.leetcodementor.service.AiService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Flux;
 
 import java.util.Map;
 
@@ -22,9 +20,10 @@ public class AiController {
 
     private final AiService aiService;
 
-    @PostMapping(value = "/generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<String>> generate(@Valid @RequestBody AiGenerateRequest request) {
-        return aiService.generate(request);
+    @PostMapping("/generate")
+    public ResponseEntity<ApiResponse<AiGenerateResponse>> generate(@Valid @RequestBody AiGenerateRequest request) {
+        AiGenerateResponse response = aiService.generate(request);
+        return ResponseEntity.ok(ApiResponse.success(response, "AI suggestion retrieved successfully"));
     }
 
     /** Fire-and-forget: starts prefetch in background, returns immediately */

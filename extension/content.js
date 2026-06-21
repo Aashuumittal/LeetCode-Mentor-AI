@@ -583,7 +583,7 @@
     const language = user ? user.preferredLanguage : 'JAVA';
 
     const outputBox = shadow.getElementById('ai-output-box');
-    outputBox.innerHTML = '<span class="pulse-text">AI is thinking...</span>';
+    outputBox.innerHTML = '<span class="pulse-text">Generating...</span>';
 
     // Highlight active dock button
     shadow.querySelectorAll('.dock-btn').forEach(btn => btn.classList.remove('active'));

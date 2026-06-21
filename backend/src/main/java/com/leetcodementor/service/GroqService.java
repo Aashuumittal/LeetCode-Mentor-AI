@@ -201,7 +201,8 @@ public class GroqService {
                 .bodyToFlux(typeRef)
                 .timeout(Duration.ofSeconds(30))
                 .retryWhen(Retry.backoff(2, Duration.ofSeconds(2))
-                        .filter(t -> t instanceof java.io.IOException || t instanceof java.util.concurrent.TimeoutException)
+                        .maxBackoff(Duration.ofSeconds(15))
+                        .filter(GroqService::isRetryable)
                 )
                 .map(sse -> parseGroqChunk(sse.data()))
                 .filter(text -> !text.isEmpty())
@@ -233,8 +234,9 @@ public class GroqService {
                     .retrieve()
                     .bodyToMono(String.class)
                     .timeout(Duration.ofSeconds(30))
-                    .retryWhen(Retry.backoff(2, Duration.ofSeconds(2))
-                            .filter(t -> t instanceof java.io.IOException || t instanceof java.util.concurrent.TimeoutException)
+                    .retryWhen(Retry.backoff(3, Duration.ofSeconds(3))
+                            .maxBackoff(Duration.ofSeconds(20))
+                            .filter(GroqService::isRetryable)
                     )
                     .block();
 
@@ -284,6 +286,23 @@ public class GroqService {
         }
         return "";
     }
+
+    /**
+     * Retries on transient network failures (IOException/TimeoutException) and
+     * on HTTP 429 (Groq rate limit) — the original filter only covered the
+     * former, so every 429 used to fail the call immediately with zero
+     * in-place retry, relying entirely on the caller's own outer retry loop.
+     */
+    private static boolean isRetryable(Throwable t) {
+        if (t instanceof java.io.IOException || t instanceof java.util.concurrent.TimeoutException) {
+            return true;
+        }
+        if (t instanceof org.springframework.web.reactive.function.client.WebClientResponseException wcre) {
+            return wcre.getStatusCode().value() == 429;
+        }
+        return false;
+    }
+
     // Blocking versions for prefetch
 
     public String blockingExplainQuestion(String title, String slug, String description) {

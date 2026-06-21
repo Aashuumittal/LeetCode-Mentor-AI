@@ -31,10 +31,30 @@ public class AiService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final int MAX_RETRIES = 5;
-    private static final long RETRY_DELAY_MS = 3    000;// 2s between retries
+    private static final long RETRY_DELAY_MS = 2000; // base backoff unit between retries
     private static final String STATUS_PREFIX = "prefetch-status:";
 
-    private final Executor prefetchExecutor = Executors.newFixedThreadPool(1);
+    // Only these 6 are prefetched eagerly when a user opens a problem.
+    // Everything else (the remaining 10 hint/solution combinations) is
+    // fetched lazily on first request and cached at that point — see
+    // generate() below, which now also writes the DONE status key.
+    private static final List<TaskSpec> PRIORITY_TASKS = List.of(
+            new TaskSpec(Approach.BRUTEFORCE, ContentType.EXPLAIN),   // Explanation (approach-agnostic, stored under BRUTEFORCE)
+            new TaskSpec(Approach.BRUTEFORCE, ContentType.HINT_1),
+            new TaskSpec(Approach.BRUTEFORCE, ContentType.HINT_2),
+            new TaskSpec(Approach.OPTIMIZED, ContentType.HINT_1),
+            new TaskSpec(Approach.OPTIMAL, ContentType.HINT_1),
+            new TaskSpec(Approach.OPTIMAL, ContentType.HINT_2)
+    );
+
+    // A handful of concurrent slots is enough for 6 priority tasks and stays
+    // well clear of Groq's per-minute rate limit (previously 16-at-once
+    // caused widespread 429s; this also fixes the retry filter below so any
+    // 429 that does happen gets retried with backoff instead of silently
+    // failing the task).
+    private final Executor prefetchExecutor = Executors.newFixedThreadPool(3);
+
+    private record TaskSpec(Approach approach, ContentType contentType) {}
 
     // ─── Generate (streaming, Redis-first) ───────────────────────────────────
 
@@ -45,10 +65,12 @@ public class AiService {
                 request.getApproach(),
                 request.getContentType()
         );
+        String statusKey = STATUS_PREFIX + cacheKey;
 
         String cachedResponse = (String) redisTemplate.opsForValue().get(cacheKey);
         if (cachedResponse != null) {
             log.info("Redis cache hit for key: {}", cacheKey);
+            redisTemplate.opsForValue().set(statusKey, "DONE", Duration.ofHours(2));
             String[] tokens = cachedResponse.split("(?<=\\s)|(?=\\s)");
             return Flux.fromArray(tokens)
                     .delayElements(Duration.ofMillis(5))
@@ -76,6 +98,10 @@ public class AiService {
                     String fullText = aggregator.toString();
                     if (!fullText.isEmpty()) {
                         redisTemplate.opsForValue().set(cacheKey, fullText, Duration.ofDays(30));
+                        // Lazily-fetched content is now cached too, so reflect that
+                        // in the prefetch status map (this item may not have been
+                        // part of the original priority batch).
+                        redisTemplate.opsForValue().set(statusKey, "DONE", Duration.ofHours(2));
                         log.info("Cached AI content in Redis for key: {}", cacheKey);
                     }
                 });
@@ -108,20 +134,24 @@ public class AiService {
         );
     }
 
-    // ─── Prefetch all (fire-and-forget, with retries) ─────────────────────────
-
+    // ─── Prefetch priority set only (fire-and-forget, with retries) ──────────
+    // Previously this fired all 16 hint/solution/explain combinations at once,
+    // which routinely tripped Groq's rate limit (429s). Now it only prefetches
+    // the 6 items a user is statistically most likely to need immediately;
+    // everything else is fetched lazily and cached on first real request
+    // (see generate() above).
     public void prefetchAll(PrefetchRequest req) {
         String slug        = req.getProblemSlug();
         String title       = req.getProblemTitle();
         String description = req.getProblemDescription();
         Language language  = req.getLanguage();
 
-        List<String> taskKeys = buildAllTaskKeys(slug, language);
-
-        // Mark everything PENDING upfront so the status endpoint can see them immediately
-        for (String taskKey : taskKeys) {
-            String statusKey = STATUS_PREFIX + taskKey;
-            // Only reset if not already DONE (don't re-prefetch cached content)
+        // Mark only the priority tasks PENDING upfront so the status endpoint
+        // reflects them immediately. Non-priority tasks are left alone — they
+        // simply read as PENDING by default until the user requests them.
+        for (TaskSpec task : PRIORITY_TASKS) {
+            String cacheKey = buildCacheKey(slug, language, task.approach(), task.contentType());
+            String statusKey = STATUS_PREFIX + cacheKey;
             String existing = (String) redisTemplate.opsForValue().get(statusKey);
             if (!"DONE".equals(existing)) {
                 redisTemplate.opsForValue().set(statusKey, "PENDING", Duration.ofHours(2));
@@ -129,33 +159,20 @@ public class AiService {
         }
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-        // EXPLAIN — once, approach-agnostic
-        futures.add(CompletableFuture.runAsync(() ->
-                prefetchWithRetry(slug, title, description, Approach.BRUTEFORCE, ContentType.EXPLAIN, language),
-                prefetchExecutor));
-
-        // HINT_1..4 + SOLUTION × 3 approaches
-        for (Approach approach : Approach.values()) {
-            for (ContentType ct : List.of(
-                    ContentType.HINT_1, ContentType.HINT_2,
-                    ContentType.HINT_3, ContentType.HINT_4,
-                    ContentType.SOLUTION)) {
-                final Approach a = approach;
-                futures.add(CompletableFuture.runAsync(() ->
-                        prefetchWithRetry(slug, title, description, a, ct, language),
-                        prefetchExecutor));
-            }
+        for (TaskSpec task : PRIORITY_TASKS) {
+            futures.add(CompletableFuture.runAsync(() ->
+                    prefetchWithRetry(slug, title, description, task.approach(), task.contentType(), language),
+                    prefetchExecutor));
         }
 
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenRun(() -> log.info("Prefetch fully complete for: {}", slug))
+                .thenRun(() -> log.info("Priority prefetch complete for: {}", slug))
                 .exceptionally(ex -> {
-                    log.warn("Prefetch batch error for {}: {}", slug, ex.getMessage());
+                    log.warn("Priority prefetch batch error for {}: {}", slug, ex.getMessage());
                     return null;
                 });
 
-        log.info("Prefetch started for: {} ({} tasks)", slug, futures.size());
+        log.info("Priority prefetch started for: {} ({} tasks)", slug, futures.size());
     }
 
     // ─── Retry logic ─────────────────────────────────────────────────────────
@@ -182,19 +199,21 @@ public class AiService {
                 if (result != null && !result.isBlank()) {
                     redisTemplate.opsForValue().set(cacheKey, result, Duration.ofDays(30));
                     redisTemplate.opsForValue().set(statusKey, "DONE", Duration.ofHours(2));
-                    Thread.sleep(1500);
                     log.info("Prefetch DONE (attempt {}): {}", attempt, cacheKey);
                     return;
                 } else {
                     log.warn("Prefetch attempt {} returned empty result for: {}", attempt, cacheKey);
                 }
             } catch (Exception e) {
-                log.warn("Prefetch attempt {}/{} failed for {}: {}", attempt, MAX_RETRIES, cacheKey, e.getMessage());
+                boolean isRateLimited = isTooManyRequests(e);
+                log.warn("Prefetch attempt {}/{} failed for {} ({}): {}",
+                        attempt, MAX_RETRIES, cacheKey, isRateLimited ? "429" : "error", e.getMessage());
             }
 
             if (attempt < MAX_RETRIES) {
+                long delay = RETRY_DELAY_MS * attempt; // 2s, 4s, 6s, 8s
                 try {
-                    Thread.sleep(RETRY_DELAY_MS * attempt); // exponential-ish backoff: 2s, 4s, 6s, 8s
+                    Thread.sleep(delay);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     break;
@@ -275,5 +294,10 @@ public class AiService {
     private String decodeToken(String wireValue) {
         try { return objectMapper.readValue(wireValue, String.class); }
         catch (Exception e) { return wireValue; }
+    }
+
+    private boolean isTooManyRequests(Throwable t) {
+        return t instanceof org.springframework.web.reactive.function.client.WebClientResponseException wcre
+                && wcre.getStatusCode().value() == 429;
     }
 }

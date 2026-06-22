@@ -44,7 +44,7 @@ groq:
 
 openrouter:
   api:
-    key: ${OPENROUTER_API_KEY:}
+    key: ${OPENROUTER_API_KEY}
     url: ${OPENROUTER_API_URL:https://openrouter.ai/api/v1/chat/completions}
 
 ai:

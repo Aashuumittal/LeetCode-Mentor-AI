@@ -28,7 +28,7 @@ public class AiOrchestratorService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final AiRequestMetadataRepository aiRequestMetadataRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final ExecutorService executorService = Executors.newFixedThreadPool(4);
+    private final ExecutorService executorService = Executors.newFixedThreadPool(16);
 
     private static final String STATUS_PREFIX = "prefetch-status:";
 
@@ -145,7 +145,7 @@ public class AiOrchestratorService {
                 throw new RuntimeException("Empty response from AI provider");
             } catch (Exception e) {
                 attempt++;
-                if (attempt > 3) {
+                if (attempt > 1) {
                     throw e; // Propage error to fall back to next provider
                 }
                 long delayMs = (1L << attempt) * 1000; // 2s, 4s, 8s

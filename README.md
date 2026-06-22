@@ -1,45 +1,128 @@
-# 🚀 LeetCode Mentor AI
+# 🚀 LeetCode AI Mentor 
 
-[![Java Version](https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk)](https://openjdk.org/)
-[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-brightgreen?style=for-the-badge&logo=springboot)](https://spring.io/projects/spring-boot)
-[![Groq API](https://img.shields.io/badge/Groq_API-Llama_3.3_70B-blueviolet?style=for-the-badge&logo=meta)](https://groq.com/)
-[![OpenRouter](https://img.shields.io/badge/OpenRouter-DeepSeek_R1-orange?style=for-the-badge&logo=openrouter)](https://openrouter.ai/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
-[![Redis](https://img.shields.io/badge/Redis-Cache-red?style=for-the-badge&logo=redis)](https://redis.io/)
-[![Chrome Extension](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-yellow?style=for-the-badge&logo=googlechrome)](https://developer.chrome.com/docs/extensions/mv3/intro/)
-[![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
+### An AI-Powered Chrome Extension for Learning DSA the Right Way
 
-An AI-powered Chrome Extension integrated directly into LeetCode that helps you learn Data Structures and Algorithms (DSA) **conceptually** instead of simply giving away the solutions. 
 
----
-
-## 📖 Overview
-
-**LeetCode Mentor AI** acts as a personal, interactive DSA tutor right inside your browser. Instead of spoiling questions with immediate solutions, the extension utilizes a progressive hint system powered by a resilient, multi-provider AI orchestration layer:
-1. **Tier 1 (Primary)**: Groq API with `llama-3.3-70b-versatile`
-2. **Tier 2 (Fallback)**: Groq API with `deepseek-r1-distill-llama-70b`
-3. **Tier 3 (Final)**: OpenRouter API with `deepseek/deepseek-r1`
-
-The system includes automated retries with exponential backoffs (2s, 4s, 8s) to bypass rate limits and prefetch failures. Content is cached in Redis with rich provider metadata (provider, model, timestamps) and stored in PostgreSQL for state tracking. A sleek glassmorphic frontend polls the backend for completion to ensure a highly responsive, error-free user experience.
+LeetCode Mentor AI is designed to transform the way you practice Data Structures and Algorithms. Instead of directly revealing solutions, it guides you step-by-step using structured hints, AI-powered explanations, code reviews, and revision tracking — helping you truly understand problems rather than memorize answers.
 
 ---
 
 ## ✨ Features
+```
+🔍 Explain Question
 
-*   **🔍 Explain Question**: Break down complex problem statements into intuitive terms and key observations without discussing coding logic.
-*   **💡 Progressive Hint System (Hint 1 → Hint 4)**: 
-    *   *Hint 1*: Conceptual approach / starting intuition.
-    *   *Hint 2*: Brute force approach details.
-    *   *Hint 3*: Optimized approach with hints on data structures.
-    *   *Hint 4*: The optimal algorithm framework.
-*   **📝 AI Code Review**: Highlight structural errors, edge cases, complexity problems, and code styling enhancements in your submissions.
-*   **⚡ Complexity Analysis**: Interactive complexity grids mapping time and space efficiency for different approaches.
-*   **🏢 Company-wise Interview Frequency**: See real-time frequency distribution of current problems across top companies (FAANG/MAMA).
-*   **⏳ Spaced Repetition Revision System**: Automatically queue solved problems for future revision at scientific intervals (1, 3, 7, 30 days) to lock in learning.
-*   **🔥 Streak Tracking**: Keep yourself accountable with streak counters and daily activity logs synchronized on the backend.
-*   **✅ Mark Problem as Solved**: Directly log solved status and notes into the PostgreSQL database.
-*   **🎨 Glassmorphic UI**: A gorgeous, interactive floating panel designed with modern CSS glassmorphism, smooth animations, and high-readability cards.
+Before jumping into coding, it's crucial to fully understand the problem. This feature provides:
 
+Clear breakdown of problem statements
+Key observations and constraints
+Hidden patterns and insights
+Intuition behind solving the problem
+
+This ensures you start with the right mindset and approach, rather than guessing blindly.
+```
+---
+## 💡 Progressive Hint System
+
+```
+Each problem is carefully structured into 3 different approaches, allowing you to gradually improve your thinking
+from basic to optimal solutions.
+
+Each approach contains 4 progressive hints followed by a complete solution, ensuring guided learning at every step.
+
+✅ Approach 1 (Basic / Brute Force)
+
+This approach focuses on building a foundational understanding.
+
+Hint 1 → Understand the core idea and basic intuition
+Hint 2 → Think about a straightforward brute force method
+Hint 3 → Identify inefficiencies in this approach
+Hint 4 → Refine the brute force logic step-by-step
+✅ Solution → Complete brute force solution with detailed explanation and time/space complexity
+
+✅ Approach 2 (Better / Optimized)
+
+This stage improves upon brute force by introducing smarter techniques.
+
+Hint 1 → Identify patterns that can optimize the brute force solution
+Hint 2 → Introduce better data structures or improved logic
+Hint 3 → Reduce time complexity through optimization
+Hint 4 → Finalize the improved approach
+✅ Solution → Optimized solution with explanation and complexity analysis
+
+✅ Approach 3 (Optimal)
+
+This approach focuses on achieving the most efficient solution possible.
+
+Hint 1 → Think in terms of advanced patterns (Greedy, DP, Sliding Window, etc.)
+Hint 2 → Identify key observations required for optimal performance
+Hint 3 → Build the most efficient logic
+Hint 4 → Refine for best possible performance
+✅ Solution → Optimal solution with full explanation and complexity breakdown
+
+This structured learning system ensures:
+
+Deep conceptual clarity
+Strong problem-solving skills
+Reduced dependency on direct solutions
+```
+---
+## 🧠 AI Code Review
+```
+After solving a problem, you can submit your code for AI-powered feedback.
+
+The system analyzes your solution and provides:
+
+Logical errors and potential bugs
+Edge case handling suggestions
+Time and space complexity improvements
+Optimization opportunities
+Code readability and structure feedback
+
+This helps you learn from your mistakes and improve continuously.
+```
+---
+## 🔄 Revision System
+```
+To ensure long-term retention, the extension includes a revision system based on spaced repetition.
+
+You can revisit problems at key intervals:
+
+Day 3 → Reinforce initial understanding
+Day 7 → Strengthen memory and recall
+
+This approach helps in:
+
+Retaining concepts longer
+Improving recall speed during interviews
+Building confidence in problem-solving
+```
+---
+
+## 🏢 Company Frequency Analysis
+```
+Understand the real-world importance of each problem by analyzing:
+
+Companies that frequently ask the question
+Interview frequency trends
+Priority level for preparation
+Common patterns used in interviews
+
+This helps you focus on high-impact problems.
+```
+---
+
+## 📈 User Progress Tracking
+```
+Track your learning journey with detailed analytics:
+
+Total solved questions
+Revision history
+Daily streak tracking
+Hint usage progress
+Overall learning statistics
+
+This keeps you motivated and consistent.
+```
 ---
 
 ## 🖼️ Screenshots
@@ -87,51 +170,72 @@ graph TD
 ```
 
 ---
+## 🛠 Tech Stack
 
-## 🔄 Progressive Hint Flow
-
-The core philosophy of LeetCode Mentor AI is active learning. The user unlocks guidance sequentially:
-
-```mermaid
-flowchart TD
-    Start([Stuck on Problem]) --> H1[💡 Hint 1: Conceptual Intuition]
-    H1 --> |Still Stuck?| H2[⚙️ Hint 2: Brute Force Approach]
-    H2 --> |Still Stuck?| H3[🚀 Hint 3: Optimized Approach]
-    H3 --> |Still Stuck?| H4[⚡ Hint 4: Optimal Framework]
-    H4 --> |Final Stretch| Sol[✅ Full Optimal Solution]
-
-    style Start fill:#16161a,stroke:#72757a,stroke-width:1px,color:#94a1b2
-    style H1 fill:#7f5af0,stroke:#7f5af0,stroke-width:2px,color:#fff
-    style H2 fill:#7f5af0,stroke:#7f5af0,stroke-width:2px,color:#fff
-    style H3 fill:#2cb67d,stroke:#2cb67d,stroke-width:2px,color:#fff
-    style H4 fill:#2cb67d,stroke:#2cb67d,stroke-width:2px,color:#fff
-    style Sol fill:#ff8906,stroke:#ff8906,stroke-width:2px,color:#fff
+### Frontend
 ```
+Chrome Extension (Manifest V3)
+HTML, CSS, JavaScript
+Lightweight and responsive UI
+```
+### Backend
+```
+Java 21
+Spring Boot 3
+Spring Security
+Spring Data JPA
+RESTful APIs
+```
+### Database
+```
+PostgreSQL (for persistent user data)
+```
+### Cache
+```
+Redis (for fast AI response caching)
+```
+### AI Providers
+```
+Groq
+Model: llama-3.3-70b-versatile (Primary)
+Gemini
+Model: gemini-2.5-flash (Fallback)
+```
+### Deployment
+```
+AWS EC2 (Backend hosting)
+Upstash Redis (Cloud caching)
+Neon PostgreSQL (Managed database)
+```
+---
+## 🔐 Authentication
+```
+The application ensures secure access using:
 
+JWT Access Tokens for authentication
+Refresh Tokens for session management
+Persistent login support
+Spring Security integration
+BCrypt password encryption for safety
+```
 ---
 
 ## 🔧 Environment Variables
-
-Configure these variables inside your root `.env` file (copied from `.env.example`).
-
-| Variable Name | Default Value | Description |
-| :--- | :--- | :--- |
-| `SERVER_PORT` | `9094` | The port on which the backend server runs. |
-| `DB_HOST` | `postgres` | Host address for the PostgreSQL database. |
-| `DB_PORT` | `5432` | Port for the PostgreSQL database. |
-| `DB_NAME` | `leetcode_mentor` | Database name. |
-| `DB_USERNAME` | `postgres` | Database admin username. |
-| `DB_PASSWORD` | `your_password_here` | Database password. |
-| `REDIS_HOST` | `redis` | Host address for the Redis database/cache. |
-| `REDIS_PORT` | `6379` | Port for the Redis server. |
-| `JWT_SECRET` | `dGhpcy1pcy1h...` | Base64-encoded secret key for JWT validation. |
-| `JWT_ACCESS_EXPIRY` | `900000` | Expiration time for access token in ms (15 mins). |
-| `JWT_REFRESH_EXPIRY` | `2592000000` | Expiration time for refresh token in ms (30 days). |
-| `GROQ_API_KEY` | `your_groq_api_key` | API Key to authenticate requests with Groq Cloud. |
-| `OPENROUTER_API_KEY` | `your_openrouter_api_key` | API Key to authenticate requests with OpenRouter. |
-| `OPENROUTER_API_URL` | `https://openrouter.ai/api/v1/chat/completions` | API completions URL for OpenRouter. |
-| `CORS_ALLOWED_ORIGINS` | `chrome-extension://...` | Allowed Chrome Extension Origin ID for CORS security. |
-
+```
+SERVER_PORT=
+DB_HOST=
+DB_PORT=
+DB_NAME=
+DB_USERNAME=
+DB_PASSWORD=
+REDIS_HOST=
+REDIS_PORT=
+REDIS_USERNAME=
+REDIS_PASSWORD=
+JWT_SECRET=
+GROQ_API_KEY=
+GEMINI_API_KEY=
+```
 ---
 
 ## ⚡ API Endpoints
@@ -269,17 +373,7 @@ cd backend
 
 ---
 
-## 🤝 Contributing
 
-Contributions make the open-source community an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-
-1. Fork the Project.
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`).
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push to the Branch (`git push origin feature/AmazingFeature`).
-5. Open a Pull Request.
-
----
 
 ## 📄 License
 

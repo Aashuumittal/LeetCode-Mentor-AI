@@ -6,6 +6,7 @@ import com.leetcodementor.dto.response.AiGenerateResponse;
 import com.leetcodementor.dto.response.ApiResponse;
 import com.leetcodementor.enums.Language;
 import com.leetcodementor.service.AiService;
+import com.leetcodementor.service.GeminiService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,11 +20,18 @@ import java.util.Map;
 public class AiController {
 
     private final AiService aiService;
+    private final GeminiService geminiService;
 
     @PostMapping("/generate")
     public ResponseEntity<ApiResponse<AiGenerateResponse>> generate(@Valid @RequestBody AiGenerateRequest request) {
         AiGenerateResponse response = aiService.generate(request);
         return ResponseEntity.ok(ApiResponse.success(response, "AI suggestion retrieved successfully"));
+    }
+
+    @PostMapping("/gemini/generate")
+    public ResponseEntity<ApiResponse<AiGenerateResponse>> generateGemini(@Valid @RequestBody AiGenerateRequest request) {
+        AiGenerateResponse response = geminiService.generate(request);
+        return ResponseEntity.ok(ApiResponse.success(response, "AI suggestion retrieved successfully via Gemini 2.5"));
     }
 
     /** Fire-and-forget: starts prefetch in background, returns immediately */

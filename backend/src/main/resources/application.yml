@@ -47,6 +47,12 @@ openrouter:
     key: ${OPENROUTER_API_KEY}
     url: ${OPENROUTER_API_URL:https://openrouter.ai/api/v1/chat/completions}
 
+gemini:
+  api:
+    key: ${GEMINI_API_KEY}
+    url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com}
+    model: ${GEMINI_MODEL:gemini-2.5-flash}
+
 ai:
   model1: llama-3.3-70b-versatile
   model2: deepseek-r1-distill-llama-70b

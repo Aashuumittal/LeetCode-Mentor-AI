@@ -22,6 +22,7 @@ import java.time.Duration;
 @Slf4j
 public class CodeReviewService {
 
+    private final GroqService groqService;
     private final GeminiService geminiService;
     private final RedisTemplate<String, Object> redisTemplate;
     private final CodeReviewHistoryRepository codeReviewHistoryRepository;
@@ -46,9 +47,21 @@ public class CodeReviewService {
             }
         }
 
-        // 2. Redis miss: Call Gemini ONLY
-        log.info("Redis cache miss for code review key: {}. Calling Gemini...", cacheKey);
-        String rawResponse = geminiService.codeReview(request.getCode(), request.getLanguage(), request.getProblemSlug());
+        // 2. Redis miss: Call Groq ONLY (llama-3.3-70b-versatile)
+        log.info("Redis cache miss for code review key: {}. Calling Groq...", cacheKey);
+        String rawResponse;
+        try {
+            rawResponse = groqService.codeReview(request.getCode(), request.getLanguage(), request.getProblemSlug());
+        } catch (Exception e) {
+            log.warn("Groq code review failed for key: {}. Falling back to Gemini...", cacheKey, e);
+            // 3. Fallback: Call Gemini ONLY
+            try {
+                rawResponse = geminiService.codeReview(request.getCode(), request.getLanguage(), request.getProblemSlug());
+            } catch (Exception ex) {
+                log.error("Gemini fallback code review also failed for key: {}", cacheKey, ex);
+                throw new BadRequestException("Unable to generate answer right now. Please try again.");
+            }
+        }
 
         String cleanedJson = cleanJsonOutput(rawResponse);
 
@@ -70,7 +83,7 @@ public class CodeReviewService {
 
             return responseDto;
         } catch (Exception e) {
-            log.error("Failed to parse Gemini code review response as JSON. Cleaned input was: {}", cleanedJson, e);
+            log.error("Failed to parse code review response as JSON. Cleaned input was: {}", cleanedJson, e);
             throw new BadRequestException("Unable to generate answer right now. Please try again.");
         }
     }

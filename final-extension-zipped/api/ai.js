@@ -17,34 +17,3 @@ const AiApi = {
     });
   }
 };
-
-AiApi.prefetch = async (problemSlug, problemTitle, problemDescription, language) => {
-  try {
-    const token = await TokenUtil.getValidAccessToken();
-    if (!token) return;
-    await ApiBridge.request('/api/ai/prefetch', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: { problemSlug, problemTitle, problemDescription, language }
-    });
-  } catch (e) {
-    console.warn('Prefetch trigger failed:', e.message);
-  }
-};
-
-AiApi.getPrefetchStatus = async (slug, language = 'JAVA') => {
-  try {
-    const token = await TokenUtil.getValidAccessToken();
-    if (!token) return null;
-    return await ApiBridge.request(
-      `/api/ai/prefetch-status?slug=${encodeURIComponent(slug)}&language=${language}`,
-      { headers: { 'Authorization': `Bearer ${token}` } }
-    );
-  } catch (e) {
-    console.warn('Prefetch status check failed:', e.message);
-    return null;
-  }
-};

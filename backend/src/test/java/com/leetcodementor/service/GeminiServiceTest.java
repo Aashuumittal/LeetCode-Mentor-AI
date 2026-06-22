@@ -68,7 +68,7 @@ class GeminiServiceTest {
 
         AiGenerateResponse response = geminiService.generate(request);
 
-        assertEquals("COMPLETED", response.getStatus());
+        assertEquals("DONE", response.getStatus());
         assertEquals(cachedValue, response.getContent());
         verify(valueOperations).set(statusKey, "DONE", Duration.ofHours(2));
         verify(geminiProvider, never()).callBlocking(anyString(), anyString(), anyString(), any(Approach.class), any(ContentType.class), any(Language.class));
@@ -96,7 +96,7 @@ class GeminiServiceTest {
 
         AiGenerateResponse response = geminiService.generate(request);
 
-        assertEquals("COMPLETED", response.getStatus());
+        assertEquals("DONE", response.getStatus());
         assertEquals(generatedValue, response.getContent());
         verify(valueOperations).set(cacheKey, generatedValue, Duration.ofDays(30));
         verify(valueOperations).set(statusKey, "DONE", Duration.ofHours(2));

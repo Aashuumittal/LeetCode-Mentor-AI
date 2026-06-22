@@ -483,12 +483,8 @@
     switchDisplayView('view-console');
     refreshBottomDock();
 
-    // Default welcome screen
     const outputBox = shadow.getElementById('ai-output-box');
     outputBox.innerHTML = `<h3>Welcome to LeetCode Mentor!</h3><p>Select "Explain Question" or one of the approaches from the sidebar menu to begin.</p>`;
-
-    // Fire-and-forget prefetch — cache all 16 content types in background
-    triggerPrefetchAndTrack(problem);
   }
 
   function refreshBottomDock() {
@@ -567,11 +563,8 @@
 
   async function typewriteText(element, text) {
     element.innerHTML = '';
-    let accumulated = '';
     for (const ch of text) {
-      accumulated += ch;
-      element.innerHTML = formatMarkdown(accumulated);
-      element.scrollTop = element.scrollHeight;
+      element.innerHTML += ch;
       await sleep(8);
     }
   }
@@ -683,7 +676,7 @@
 
       if (res.success && res.data) {
         const { status, content } = res.data;
-        if (status === 'COMPLETED' && content) {
+        if (status === 'DONE' && content) {
           // Play typewriter effect
           await typewriteText(outputBox, content);
 
@@ -1166,81 +1159,6 @@
     return outputHtml;
   }
 
-  // ── Prefetch + status badge ───────────────────────────────────────────────
 
-  let prefetchPollInterval = null;
-
-  async function triggerPrefetchAndTrack(problem) {
-    const user = await StorageUtil.getUser();
-    const language = (user && user.preferredLanguage) || 'JAVA';
-    const slug = problem.problemSlug;
-
-    // Show badge immediately as "caching..."
-    showPrefetchBadge('pending', '0/16');
-
-    // Tell backend to start prefetching (fire and forget)
-    await AiApi.prefetch(slug, problem.problemTitle, problem.problemDescription, language);
-
-    // Clear any previous polling interval
-    if (prefetchPollInterval) clearInterval(prefetchPollInterval);
-
-    // Poll every 3 seconds until all 16 tasks are DONE or all have settled
-    prefetchPollInterval = setInterval(async () => {
-      const res = await AiApi.getPrefetchStatus(slug, language);
-      if (!res || !res.success) return;
-
-      const { done, failed, total, pending } = res.data;
-      const settled = done + failed;
-
-      if (failed > 0 && pending === 0) {
-        // Some failed even after retries
-        showPrefetchBadge('failed', `${done}/${total} cached, ${failed} failed`);
-        clearInterval(prefetchPollInterval);
-        prefetchPollInterval = null;
-      } else if (done === total) {
-        // All done
-        showPrefetchBadge('ready', 'All cached');
-        setTimeout(() => hidePrefetchBadge(), 3000); // auto-hide after 3s
-        clearInterval(prefetchPollInterval);
-        prefetchPollInterval = null;
-      } else {
-        // Still in progress
-        showPrefetchBadge('pending', `${done}/${total} cached...`);
-      }
-    }, 3000);
-  }
-
-  function showPrefetchBadge(state, text) {
-    let badge = shadow.getElementById('prefetch-status-badge');
-    if (!badge) {
-      badge = document.createElement('div');
-      badge.id = 'prefetch-status-badge';
-      badge.style.cssText = [
-        'position:absolute', 'bottom:8px', 'left:8px',
-        'font-size:10px', 'padding:3px 8px', 'border-radius:10px',
-        'font-weight:600', 'letter-spacing:0.3px', 'z-index:9999',
-        'transition:all 0.3s ease', 'pointer-events:none'
-      ].join(';');
-      const panel = shadow.getElementById('panel');
-      if (panel) panel.appendChild(badge);
-    }
-
-    const styles = {
-      pending: 'background:#2a2a3a;color:#a0a0c0;border:1px solid #3a3a5a',
-      ready:   'background:#0d2b1a;color:#4ade80;border:1px solid #16a34a',
-      failed:  'background:#2b0d0d;color:#f87171;border:1px solid #dc2626'
-    };
-
-    const icons = { pending: '⏳', ready: '✅', failed: '⚠️' };
-
-    badge.style.cssText += ';' + styles[state];
-    badge.innerText = `${icons[state]} ${text}`;
-    badge.style.display = 'block';
-  }
-
-  function hidePrefetchBadge() {
-    const badge = shadow.getElementById('prefetch-status-badge');
-    if (badge) badge.style.display = 'none';
-  }
 
 })();

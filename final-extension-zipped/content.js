@@ -6,7 +6,7 @@
   
   // App states
   let currentApproach = 'BRUTEFORCE'; // Default approach
-  let currentProvider = 'default'; // Default AI provider (Groq/OpenRouter)
+  let currentProvider = 'default'; // AI provider: 'default' (Groq/OpenRouter) or 'gemini'
   let problemProgressList = []; // Progress states of approaches for current problem
   let cachedRevisionQueue = { day3: [], day7: [] };
 
@@ -94,13 +94,7 @@
 
       // Load stats from server to sync
       try {
-        const response = await fetch(`${BACKEND_URL}/api/user/me`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${tokens.accessToken}`
-          }
-        });
-        const resJson = await response.json();
+        const resJson = await UserApi.getMe();
         if (resJson.success && resJson.data) {
           const data = resJson.data;
           shadow.getElementById('stat-streak').innerText = (data.currentStreak || 0) + ' 🔥';
@@ -352,14 +346,7 @@
     shadow.getElementById('btn-profile-reset').addEventListener('click', async () => {
       if (confirm('Are you absolutely sure you want to reset all progress? This will erase your streaks, revision queues, and problem logs forever.')) {
         try {
-          const token = await TokenUtil.getValidAccessToken();
-          const response = await fetch(`${BACKEND_URL}/api/user/reset`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          const resJson = await response.json();
+          const resJson = await UserApi.resetProgress();
           if (resJson.success) {
             alert('All progress cleared successfully.');
             await checkAuthenticationState();
@@ -386,7 +373,7 @@
       shadow.getElementById('ai-output-box').innerHTML = 'Console cleared.';
     });
 
-    // Provider selection dropdown listener
+    // AI provider selection dropdown
     shadow.getElementById('ai-provider-select').addEventListener('change', (e) => {
       currentProvider = e.target.value;
       console.log('AI Provider changed to:', currentProvider);
@@ -574,6 +561,21 @@
     }
   }
 
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function typewriteText(element, text) {
+    element.innerHTML = '';
+    let accumulated = '';
+    for (const ch of text) {
+      accumulated += ch;
+      element.innerHTML = formatMarkdown(accumulated);
+      element.scrollTop = element.scrollHeight;
+      await sleep(8);
+    }
+  }
+
   let hintCounts = { 'HINT_1': 1, 'HINT_2': 2, 'HINT_3': 3, 'HINT_4': 4 };
   async function triggerAiHint(contentType) {
     if (activeAiController) {
@@ -590,7 +592,7 @@
     const language = user ? user.preferredLanguage : 'JAVA';
 
     const outputBox = shadow.getElementById('ai-output-box');
-    outputBox.innerHTML = '<span class="pulse-text">Generating...</span>';
+    outputBox.innerHTML = '<span class="pulse-text">Generating answer...</span>';
 
     // Highlight active dock button
     shadow.querySelectorAll('.dock-btn').forEach(btn => btn.classList.remove('active'));
@@ -670,65 +672,65 @@
     };
 
     try {
-      const content = await AiApi.generate(req, currentProvider, currentController.signal);
+      const res = await AiApi.generate(req, currentProvider, currentController.signal);
       
+      if (currentController.signal.aborted) {
+        return;
+      }
       if (activeAiController === currentController) {
         activeAiController = null;
       }
 
-      // Fake typewriter effect on the frontend
-      outputBox.innerHTML = '';
-      let partialText = '';
-      for (let i = 0; i < content.length; i++) {
-        if (currentController.signal.aborted) {
-          return;
-        }
-        partialText += content[i];
-        outputBox.innerHTML = formatMarkdown(partialText);
-        outputBox.scrollTop = outputBox.scrollHeight;
-        await new Promise(resolve => setTimeout(resolve, 8));
-      }
+      if (res.success && res.data) {
+        const { status, content } = res.data;
+        if (status === 'COMPLETED' && content) {
+          // Play typewriter effect
+          await typewriteText(outputBox, content);
 
-      console.log('Generation completed for content type:', contentType);
-      
-      // Log progress update back to server
-      if (contentType.startsWith('HINT_') || contentType === 'SOLUTION' || contentType === 'EXPLAIN') {
-        const isHint = contentType.startsWith('HINT_');
-        const num = isHint ? hintCounts[contentType] : 0;
-        
-        const prevProgress = problemProgressList.find(p => p.approach === approach) || {};
-        const prevHintsUnlocked = prevProgress.hintsUnlocked || 0;
-        const prevSolutionViewed = prevProgress.solutionViewed || false;
-        const prevQuestionExplained = prevProgress.questionExplained || false;
+          // Log progress update back to server
+          if (contentType.startsWith('HINT_') || contentType === 'SOLUTION' || contentType === 'EXPLAIN') {
+            const isHint = contentType.startsWith('HINT_');
+            const num = isHint ? hintCounts[contentType] : 0;
+            
+            const prevProgress = problemProgressList.find(p => p.approach === approach) || {};
+            const prevHintsUnlocked = prevProgress.hintsUnlocked || 0;
+            const prevSolutionViewed = prevProgress.solutionViewed || false;
+            const prevQuestionExplained = prevProgress.questionExplained || false;
 
-        const updatedHintsUnlocked = Math.max(prevHintsUnlocked, num);
-        const updatedSolutionViewed = prevSolutionViewed || (contentType === 'SOLUTION');
-        const updatedQuestionExplained = prevQuestionExplained || (contentType === 'EXPLAIN');
+            const updatedHintsUnlocked = Math.max(prevHintsUnlocked, num);
+            const updatedSolutionViewed = prevSolutionViewed || (contentType === 'SOLUTION');
+            const updatedQuestionExplained = prevQuestionExplained || (contentType === 'EXPLAIN');
 
-        const res = await ProgressApi.updateProgress(
-          problem.problemSlug,
-          approach,
-          updatedHintsUnlocked,
-          updatedSolutionViewed,
-          updatedQuestionExplained
-        );
-        
-        if (res.success && res.data) {
-          const idx = problemProgressList.findIndex(p => p.approach === approach);
-          if (idx !== -1) {
-            problemProgressList[idx] = res.data;
-          } else {
-            problemProgressList.push(res.data);
+            const progressRes = await ProgressApi.updateProgress(
+              problem.problemSlug,
+              approach,
+              updatedHintsUnlocked,
+              updatedSolutionViewed,
+              updatedQuestionExplained
+            );
+            
+            if (progressRes.success && progressRes.data) {
+              const idx = problemProgressList.findIndex(p => p.approach === approach);
+              if (idx !== -1) {
+                problemProgressList[idx] = progressRes.data;
+              } else {
+                problemProgressList.push(progressRes.data);
+              }
+              refreshBottomDock();
+            }
           }
-          refreshBottomDock();
+        } else {
+          outputBox.innerHTML = `<span class="auth-error-msg">Unable to generate answer right now. Please try again.</span>`;
         }
+      } else {
+        outputBox.innerHTML = `<span class="auth-error-msg">Unable to generate answer right now. Please try again.</span>`;
       }
     } catch (e) {
       if (activeAiController === currentController) {
         activeAiController = null;
       }
       if (e.name !== 'AbortError') {
-        outputBox.innerHTML = `<span class="auth-error-msg">Error generating suggestion: ${e.message}</span>`;
+        outputBox.innerHTML = `<span class="auth-error-msg">Unable to generate answer right now. Please try again.</span>`;
       }
     }
   }
@@ -751,10 +753,13 @@
     const langBtn = document.querySelector('button[id^="lang-select"]') || document.querySelector('.lang-select-btn');
     if (langBtn) {
       const text = langBtn.innerText.trim().toUpperCase();
+      // Order matters: 'JAVASCRIPT' contains the substring 'JAVA', so the
+      // JAVASCRIPT/CPP checks must run before the JAVA check or every
+      // JavaScript user gets misdetected as JAVA.
+      if (text.includes('JAVASCRIPT') || text === 'JS') return 'JAVASCRIPT';
       if (text.includes('C++') || text.includes('CPP')) return 'CPP';
       if (text.includes('PYTHON')) return 'PYTHON';
       if (text.includes('JAVA')) return 'JAVA';
-      if (text.includes('JAVASCRIPT') || text.includes('JS')) return 'JAVASCRIPT';
     }
     return 'JAVA';
   }

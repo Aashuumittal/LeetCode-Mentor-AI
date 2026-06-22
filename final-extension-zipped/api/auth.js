@@ -1,15 +1,12 @@
-const BACKEND_URL = "http://16.192.43.42:9094";
-
 const AuthApi = {
   register: async (name, email, password, preferredLanguage) => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
+      const json = await ApiBridge.request('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, preferredLanguage })
+        body: { name, email, password, preferredLanguage }
       });
 
-      const json = await response.json();
       if (json.success && json.data) {
         await StorageUtil.setTokens(json.data.accessToken, json.data.refreshToken);
         await StorageUtil.setUser(json.data.user);
@@ -23,13 +20,12 @@ const AuthApi = {
 
   login: async (email, password) => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+      const json = await ApiBridge.request('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: { email, password }
       });
 
-      const json = await response.json();
       if (json.success && json.data) {
         await StorageUtil.setTokens(json.data.accessToken, json.data.refreshToken);
         await StorageUtil.setUser(json.data.user);
@@ -45,10 +41,10 @@ const AuthApi = {
     try {
       const tokens = await StorageUtil.getTokens();
       if (tokens.refreshToken) {
-        await fetch(`${BACKEND_URL}/api/auth/logout`, {
+        await ApiBridge.request('/api/auth/logout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken: tokens.refreshToken })
+          body: { refreshToken: tokens.refreshToken }
         });
       }
     } catch (error) {

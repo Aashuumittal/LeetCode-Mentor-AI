@@ -47,21 +47,53 @@ public class GeminiProvider implements AiProvider {
         String systemPrompt = AiPromptBuilder.getSystemPrompt(contentType);
         String userPrompt = AiPromptBuilder.getUserPrompt(title, slug, description, approach, contentType, language);
 
-        // Map request to Google Gemini API request body format:
-        // {
-        //   "contents": [
-        //     {
-        //       "parts": [
-        //         { "text": "userPrompt" }
-        //       ]
-        //     }
-        //   ],
-        //   "systemInstruction": {
-        //     "parts": [
-        //       { "text": "systemPrompt" }
-        //     ]
-        //   }
-        // }
+        return blockChatCompletion(systemPrompt, userPrompt);
+    }
+
+    public String codeReview(String code, Language language, String problemSlug) {
+        log.info("Calling Gemini Model ({}) for code review...", modelName);
+
+        String systemPrompt = "You are an automated code review bot. Your task is to review the following code snippet and return ONLY a valid, parseable JSON object matching the requested schema.";
+
+        String userPrompt = "Code details:\n" +
+                "- Programming Language: " + language.name() + "\n" +
+                "- Optional Problem Context (slug): " + (problemSlug != null ? problemSlug : "Not provided") + "\n\n" +
+                "Code Snippet:\n" +
+                "-----------------------------------------\n" +
+                code + "\n" +
+                "-----------------------------------------\n\n" +
+                "You MUST respond ONLY with a JSON object. Do not include markdown code block characters like ```json or any other conversational text. Ensure fields have correct types. If no issues or optimizations are found, return empty arrays.\n\n" +
+                "JSON Schema:\n" +
+                "{\n" +
+                "  \"syntaxIssues\": [\n" +
+                "    { \"line\": 12, \"issue\": \"Brief description\", \"fix\": \"How to fix it\" }\n" +
+                "  ],\n" +
+                "  \"logicIssues\": [\n" +
+                "    { \"description\": \"Logic bug details\", \"suggestion\": \"What to change\" }\n" +
+                "  ],\n" +
+                "  \"optimizations\": [\n" +
+                "    { \"description\": \"Optimization details\", \"improvedCode\": \"Optimized code block\" }\n" +
+                "  ],\n" +
+                "  \"betterApproach\": {\n" +
+                "    \"description\": \"Alternative approach details (e.g. O(N) instead of O(N^2))\",\n" +
+                "    \"example\": \"Code illustration or logic flow description\"\n" +
+                "  },\n" +
+                "  \"timeComplexity\": {\n" +
+                "    \"current\": \"e.g., O(N^2)\",\n" +
+                "    \"optimized\": \"e.g., O(N)\",\n" +
+                "    \"explanation\": \"Brief complexity analysis\"\n" +
+                "  },\n" +
+                "  \"spaceComplexity\": {\n" +
+                "    \"current\": \"e.g., O(1)\",\n" +
+                "    \"optimized\": \"e.g., O(N)\",\n" +
+                "    \"explanation\": \"Brief memory usage analysis\"\n" +
+                "  }\n" +
+                "}";
+
+        return blockChatCompletion(systemPrompt, userPrompt);
+    }
+
+    public String blockChatCompletion(String systemPrompt, String userPrompt) {
         Map<String, Object> requestBody = Map.of(
                 "contents", List.of(
                         Map.of("parts", List.of(Map.of("text", userPrompt)))

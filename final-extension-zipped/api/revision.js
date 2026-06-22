@@ -4,14 +4,10 @@ const RevisionApi = {
       const token = await TokenUtil.getValidAccessToken();
       if (!token) throw new Error('Unauthorized');
 
-      const response = await fetch(`${BACKEND_URL}/api/revision/queue`, {
+      return await ApiBridge.request('/api/revision/queue', {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-
-      return await response.json();
     } catch (error) {
       console.error('Fetch revision queue failed:', error);
       return { success: false, message: error.message };
@@ -23,16 +19,14 @@ const RevisionApi = {
       const token = await TokenUtil.getValidAccessToken();
       if (!token) throw new Error('Unauthorized');
 
-      const response = await fetch(`${BACKEND_URL}/api/revision/complete`, {
+      return await ApiBridge.request('/api/revision/complete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ revisionQueueId })
+        body: { revisionQueueId }
       });
-
-      return await response.json();
     } catch (error) {
       console.error('Complete revision failed:', error);
       return { success: false, message: error.message };
@@ -44,14 +38,10 @@ const RevisionApi = {
       const token = await TokenUtil.getValidAccessToken();
       if (!token) throw new Error('Unauthorized');
 
-      const response = await fetch(`${BACKEND_URL}/api/revision/pending`, {
+      return await ApiBridge.request('/api/revision/pending', {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-
-      return await response.json();
     } catch (error) {
       console.error('Fetch pending revisions failed:', error);
       return { success: false, message: error.message };

@@ -28,6 +28,9 @@ class AiServiceTest {
     private AiOrchestratorService aiOrchestratorService;
 
     @Mock
+    private GeminiService geminiService;
+
+    @Mock
     private RedisTemplate<String, Object> redisTemplate;
 
     @Mock
@@ -54,6 +57,7 @@ class AiServiceTest {
     void generate_CacheHit_ReturnsSuccess() {
         String cacheKey = "two-sum_java_bruteforce_hint_1";
         String cachedValue = "This is a cached hint.";
+        String statusKey = "prefetch-status:" + cacheKey;
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(cacheKey)).thenReturn(cachedValue);
@@ -62,53 +66,26 @@ class AiServiceTest {
 
         assertEquals("COMPLETED", response.getStatus());
         assertEquals(cachedValue, response.getContent());
-        verify(aiOrchestratorService, never()).prefetchAll(anyString(), anyString(), anyString(), any(Language.class));
+        verify(redisTemplate.opsForValue()).set(statusKey, "DONE", Duration.ofHours(2));
+        verify(geminiService, never()).generate(any(AiGenerateRequest.class));
     }
 
     @Test
-    void generate_CacheMiss_NoStatus_TriggersPrefetchAndReturnsPending() {
+    void generate_CacheMiss_RescuesWithGemini() {
         String cacheKey = "two-sum_java_bruteforce_hint_1";
-        String statusKey = "prefetch-status:" + cacheKey;
+        AiGenerateResponse expectedRescueResponse = AiGenerateResponse.builder()
+                .status("COMPLETED")
+                .content("Gemini rescued content")
+                .build();
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(cacheKey)).thenReturn(null);
-        when(valueOperations.get(statusKey)).thenReturn(null);
+        when(geminiService.generate(request)).thenReturn(expectedRescueResponse);
 
         AiGenerateResponse response = aiService.generate(request);
 
-        assertEquals("PENDING", response.getStatus());
-        verify(aiOrchestratorService, times(1)).prefetchAll(
-                eq("Two Sum"), eq("two-sum"), eq("Find two numbers that add up to target."), eq(Language.JAVA)
-        );
-    }
-
-    @Test
-    void generate_CacheMiss_StatusPending_ReturnsPending() {
-        String cacheKey = "two-sum_java_bruteforce_hint_1";
-        String statusKey = "prefetch-status:" + cacheKey;
-
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(cacheKey)).thenReturn(null);
-        when(valueOperations.get(statusKey)).thenReturn("PENDING");
-
-        AiGenerateResponse response = aiService.generate(request);
-
-        assertEquals("PENDING", response.getStatus());
-        verify(aiOrchestratorService, never()).prefetchAll(anyString(), anyString(), anyString(), any(Language.class));
-    }
-
-    @Test
-    void generate_CacheMiss_StatusFailed_ReturnsFailed() {
-        String cacheKey = "two-sum_java_bruteforce_hint_1";
-        String statusKey = "prefetch-status:" + cacheKey;
-
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(cacheKey)).thenReturn(null);
-        when(valueOperations.get(statusKey)).thenReturn("FAILED");
-
-        AiGenerateResponse response = aiService.generate(request);
-
-        assertEquals("FAILED", response.getStatus());
-        verify(aiOrchestratorService, never()).prefetchAll(anyString(), anyString(), anyString(), any(Language.class));
+        assertEquals("COMPLETED", response.getStatus());
+        assertEquals("Gemini rescued content", response.getContent());
+        verify(geminiService, times(1)).generate(request);
     }
 }

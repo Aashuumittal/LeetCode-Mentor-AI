@@ -9,12 +9,10 @@ const CompanyApi = {
       if (difficulty) params.append('difficulty', difficulty);
       if (topic) params.append('topic', topic);
 
-      const response = await fetch(`${BACKEND_URL}/api/company-questions?${params.toString()}`, {
+      return await ApiBridge.request(`/api/company-questions?${params.toString()}`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-
-      return await response.json();
     } catch (error) {
       console.error('Fetch company questions failed:', error);
       return { success: false, message: error.message };
@@ -32,12 +30,10 @@ const CompanyApi = {
       params.append('slug', slug);
       if (description) params.append('description', description);
 
-      const response = await fetch(`${BACKEND_URL}/api/company-questions/problem?${params.toString()}`, {
+      return await ApiBridge.request(`/api/company-questions/problem?${params.toString()}`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-
-      return await response.json();
     } catch (error) {
       console.error('Fetch company frequencies failed:', error);
       return { success: false, message: error.message };

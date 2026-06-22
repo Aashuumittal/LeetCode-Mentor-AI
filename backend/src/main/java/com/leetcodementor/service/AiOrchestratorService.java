@@ -19,6 +19,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 @Slf4j
@@ -27,6 +29,7 @@ public class AiOrchestratorService {
     private final List<AiProvider> providers = new ArrayList<>();
     private final RedisTemplate<String, Object> redisTemplate;
     private final AiRequestMetadataRepository aiRequestMetadataRepository;
+    private final PrefetchJobManager prefetchJobManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ExecutorService executorService = Executors.newFixedThreadPool(16);
 
@@ -37,26 +40,40 @@ public class AiOrchestratorService {
                                  GroqModel2Provider model2Provider,
                                  OpenRouterModel3Provider model3Provider,
                                  RedisTemplate<String, Object> redisTemplate,
-                                 AiRequestMetadataRepository aiRequestMetadataRepository) {
+                                 AiRequestMetadataRepository aiRequestMetadataRepository,
+                                 PrefetchJobManager prefetchJobManager) {
         this.providers.add(model1Provider);
         this.providers.add(model2Provider);
         this.providers.add(model3Provider);
         this.redisTemplate = redisTemplate;
         this.aiRequestMetadataRepository = aiRequestMetadataRepository;
+        this.prefetchJobManager = prefetchJobManager;
     }
 
     private record TaskSpec(Approach approach, ContentType contentType) {}
 
     public void prefetchAll(String title, String slug, String description, Language language) {
         log.info("Starting orchestrated prefetch for slug: {}", slug);
-        CompletableFuture.runAsync(() -> runOrchestration(title, slug, description, language), executorService);
+        
+        PrefetchJobManager.PrefetchJob newJob = prefetchJobManager.startNewJob(slug);
+
+        Future<?> mainFuture = executorService.submit(() -> {
+            try {
+                runOrchestration(newJob, title, slug, description, language);
+            } catch (Exception e) {
+                log.error("Orchestration interrupted or failed for slug: {}", slug, e);
+            }
+        });
+        newJob.addFuture(mainFuture);
     }
 
-    private void runOrchestration(String title, String slug, String description, Language language) {
+    private void runOrchestration(PrefetchJobManager.PrefetchJob job, String title, String slug, String description, Language language) {
+        if (job.isCancelled()) return;
         List<TaskSpec> allTasks = buildAllTasks();
 
         // 1. Mark status for all tasks
         for (TaskSpec task : allTasks) {
+            if (job.isCancelled()) return;
             String cacheKey = buildCacheKey(slug, language, task.approach(), task.contentType());
             String statusKey = STATUS_PREFIX + cacheKey;
             if (Boolean.TRUE.equals(redisTemplate.hasKey(cacheKey))) {
@@ -67,76 +84,108 @@ public class AiOrchestratorService {
         }
 
         // STEP 1: Provider 1 (Groq Model 1)
+        if (job.isCancelled()) return;
         List<TaskSpec> step1Tasks = getMissingTasks(slug, language, allTasks);
         if (!step1Tasks.isEmpty()) {
-            executeStep(providers.get(0), step1Tasks, title, slug, description, language);
+            executeStep(job, providers.get(0), step1Tasks, title, slug, description, language);
         }
 
         // STEP 2: Provider 2 (Groq Model 2)
+        if (job.isCancelled()) return;
         List<TaskSpec> step2Tasks = getMissingTasks(slug, language, allTasks);
         if (!step2Tasks.isEmpty()) {
-            executeStep(providers.get(1), step2Tasks, title, slug, description, language);
+            executeStep(job, providers.get(1), step2Tasks, title, slug, description, language);
         }
 
         // STEP 3: Provider 3 (OpenRouter Model 3)
+        if (job.isCancelled()) return;
         List<TaskSpec> step3Tasks = getMissingTasks(slug, language, allTasks);
         if (!step3Tasks.isEmpty()) {
-            executeStepAndMarkFailed(providers.get(2), step3Tasks, title, slug, description, language);
+            executeStepAndMarkFailed(job, providers.get(2), step3Tasks, title, slug, description, language);
         }
 
         log.info("Prefetch orchestration complete for: {}", slug);
     }
 
-    private void executeStep(AiProvider provider, List<TaskSpec> tasks, String title, String slug, String description, Language language) {
+    private void executeStep(PrefetchJobManager.PrefetchJob job, AiProvider provider, List<TaskSpec> tasks, String title, String slug, String description, Language language) {
+        if (job.isCancelled()) return;
         log.info("Executing Step with provider {} for {} tasks on slug: {}", provider.getProviderName(), tasks.size(), slug);
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
+        List<Future<?>> taskFutures = new ArrayList<>();
 
         for (TaskSpec task : tasks) {
-            futures.add(CompletableFuture.runAsync(() -> {
+            if (job.isCancelled()) return;
+            Future<?> future = executorService.submit(() -> {
+                if (job.isCancelled()) return;
                 String cacheKey = buildCacheKey(slug, language, task.approach(), task.contentType());
                 try {
-                    String result = callWithBackoff(provider, title, slug, description, task.approach(), task.contentType(), language, cacheKey);
+                    String result = callWithBackoff(job, provider, title, slug, description, task.approach(), task.contentType(), language, cacheKey);
+                    if (job.isCancelled()) return;
                     if (result != null && !result.isBlank()) {
                         cacheAndSaveMetadata(cacheKey, result, provider);
                     }
                 } catch (Exception e) {
+                    if (job.isCancelled()) return;
                     log.error("Step execution failed for provider {} on key {}: {}", provider.getProviderName(), cacheKey, e.getMessage());
                 }
-            }, executorService));
+            });
+            job.addFuture(future);
+            taskFutures.add(future);
         }
 
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        for (Future<?> f : taskFutures) {
+            try {
+                f.get();
+            } catch (Exception e) {
+                // Ignore/log
+            }
+        }
     }
 
-    private void executeStepAndMarkFailed(AiProvider provider, List<TaskSpec> tasks, String title, String slug, String description, Language language) {
+    private void executeStepAndMarkFailed(PrefetchJobManager.PrefetchJob job, AiProvider provider, List<TaskSpec> tasks, String title, String slug, String description, Language language) {
+        if (job.isCancelled()) return;
         log.info("Executing Fallback Step with provider {} for {} tasks on slug: {}", provider.getProviderName(), tasks.size(), slug);
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
+        List<Future<?>> taskFutures = new ArrayList<>();
 
         for (TaskSpec task : tasks) {
-            futures.add(CompletableFuture.runAsync(() -> {
+            if (job.isCancelled()) return;
+            Future<?> future = executorService.submit(() -> {
+                if (job.isCancelled()) return;
                 String cacheKey = buildCacheKey(slug, language, task.approach(), task.contentType());
                 String statusKey = STATUS_PREFIX + cacheKey;
                 try {
-                    String result = callWithBackoff(provider, title, slug, description, task.approach(), task.contentType(), language, cacheKey);
+                    String result = callWithBackoff(job, provider, title, slug, description, task.approach(), task.contentType(), language, cacheKey);
+                    if (job.isCancelled()) return;
                     if (result != null && !result.isBlank()) {
                         cacheAndSaveMetadata(cacheKey, result, provider);
                     } else {
                         redisTemplate.opsForValue().set(statusKey, "FAILED", Duration.ofHours(2));
                     }
                 } catch (Exception e) {
+                    if (job.isCancelled()) return;
                     log.error("Final step execution failed for provider {} on key {}: {}", provider.getProviderName(), cacheKey, e.getMessage());
                     redisTemplate.opsForValue().set(statusKey, "FAILED", Duration.ofHours(2));
                 }
-            }, executorService));
+            });
+            job.addFuture(future);
+            taskFutures.add(future);
         }
 
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        for (Future<?> f : taskFutures) {
+            try {
+                f.get();
+            } catch (Exception e) {
+                // Ignore/log
+            }
+        }
     }
 
-    private String callWithBackoff(AiProvider provider, String title, String slug, String description,
+    private String callWithBackoff(PrefetchJobManager.PrefetchJob job, AiProvider provider, String title, String slug, String description,
                                    Approach approach, ContentType contentType, Language language, String cacheKey) throws Exception {
         int attempt = 0;
         while (true) {
+            if (job.isCancelled()) {
+                throw new InterruptedException("Job was cancelled");
+            }
             try {
                 String result = provider.callBlocking(title, slug, description, approach, contentType, language);
                 if (result != null && !result.isBlank()) {
@@ -144,18 +193,21 @@ public class AiOrchestratorService {
                 }
                 throw new RuntimeException("Empty response from AI provider");
             } catch (Exception e) {
+                if (job.isCancelled()) {
+                    throw new InterruptedException("Job was cancelled");
+                }
                 attempt++;
                 if (attempt > 1) {
-                    throw e; // Propage error to fall back to next provider
+                    throw e; // Propagate error to fall back to next provider
                 }
-                long delayMs = (1L << attempt) * 1000; // 2s, 4s, 8s
+                long delayMs = (1L << attempt) * 1000; // 2s, 4s
                 log.warn("Attempt {} failed for provider {} on key {}. Retrying in {}s...",
                         attempt, provider.getProviderName(), cacheKey, delayMs / 1000);
                 try {
                     Thread.sleep(delayMs);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
-                    throw new RuntimeException("Sleep interrupted during backoff", ie);
+                    throw ie;
                 }
             }
         }

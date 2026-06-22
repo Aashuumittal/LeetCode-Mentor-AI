@@ -4,17 +4,15 @@ const ReviewApi = {
       const token = await TokenUtil.getValidAccessToken();
       if (!token) throw new Error('Unauthorized');
 
-      const response = await fetch(`${BACKEND_URL}/api/review/code`, {
+      return await ApiBridge.request('/api/review/code', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ code, language, problemSlug }),
+        body: { code, language, problemSlug },
         signal: signal
       });
-
-      return await response.json();
     } catch (error) {
       if (error.name === 'AbortError') {
         console.log('Code review request was aborted intentionally.');

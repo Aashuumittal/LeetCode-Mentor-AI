@@ -28,6 +28,7 @@
         "utils/storage.js",
         "utils/token.js",
         "utils/scraper.js",
+        "utils/apiBridge.js",
 
         "api/auth.js",
         "api/ai.js",
@@ -35,6 +36,7 @@
         "api/revision.js",
         "api/review.js",
         "api/company.js",
+        "api/user.js",
 
         "content.js"
       ],

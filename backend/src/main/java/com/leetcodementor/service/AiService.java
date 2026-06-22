@@ -22,6 +22,7 @@ import java.util.Map;
 public class AiService {
 
     private final AiOrchestratorService aiOrchestratorService;
+    private final GeminiService geminiService;
     private final RedisTemplate<String, Object> redisTemplate;
 
     private static final String STATUS_PREFIX = "prefetch-status:";
@@ -48,48 +49,9 @@ public class AiService {
                     .build();
         }
 
-        // 2. Cache miss. Check status key.
-        String status = (String) redisTemplate.opsForValue().get(statusKey);
-        if (status == null) {
-            log.info("No prefetch status found for key: {}. Triggering lazy prefetch...", cacheKey);
-            PrefetchRequest prefetchReq = PrefetchRequest.builder()
-                    .problemSlug(request.getProblemSlug())
-                    .problemTitle(request.getProblemTitle())
-                    .problemDescription(request.getProblemDescription())
-                    .language(request.getLanguage())
-                    .build();
-            prefetchAll(prefetchReq);
-            return AiGenerateResponse.builder()
-                    .status("PENDING")
-                    .build();
-        }
-
-        if ("DONE".equals(status)) {
-            // Edge case: status is DONE but cache has expired or is null. Set to PENDING and trigger prefetch again.
-            log.warn("Status is DONE but cache is empty for key: {}. Triggering prefetch again...", cacheKey);
-            PrefetchRequest prefetchReq = PrefetchRequest.builder()
-                    .problemSlug(request.getProblemSlug())
-                    .problemTitle(request.getProblemTitle())
-                    .problemDescription(request.getProblemDescription())
-                    .language(request.getLanguage())
-                    .build();
-            prefetchAll(prefetchReq);
-            return AiGenerateResponse.builder()
-                    .status("PENDING")
-                    .build();
-        }
-
-        if ("FAILED".equals(status)) {
-            log.warn("AI generation previously failed for key: {}", cacheKey);
-            return AiGenerateResponse.builder()
-                    .status("FAILED")
-                    .build();
-        }
-
-        // Status is PENDING
-        return AiGenerateResponse.builder()
-                .status("PENDING")
-                .build();
+        // 2. Cache miss: Call Gemini direct rescue
+        log.info("Redis cache miss for key: {}. Rescuing with Gemini...", cacheKey);
+        return geminiService.generate(request);
     }
 
     // ─── Prefetch status ─────────────────────────────────────────────────────
@@ -101,7 +63,7 @@ public class AiService {
 
         for (String taskKey : taskKeys) {
             String status = (String) redisTemplate.opsForValue().get(STATUS_PREFIX + taskKey);
-            if ("DONE".equals(status))        done++;
+            if ("DONE".equals(status))     done++;
             else if ("FAILED".equals(status)) failed++;
             else                              pending++;
         }

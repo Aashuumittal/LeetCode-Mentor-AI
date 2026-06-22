@@ -5,6 +5,8 @@ import com.leetcodementor.dto.response.AiGenerateResponse;
 import com.leetcodementor.enums.Approach;
 import com.leetcodementor.enums.ContentType;
 import com.leetcodementor.enums.Language;
+import com.leetcodementor.exception.BadRequestException;
+import com.leetcodementor.repository.AiRequestMetadataRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,8 +17,10 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
 import java.time.Duration;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -32,6 +36,9 @@ class GeminiServiceTest {
 
     @Mock
     private ValueOperations<String, Object> valueOperations;
+
+    @Mock
+    private AiRequestMetadataRepository aiRequestMetadataRepository;
 
     @InjectMocks
     private GeminiService geminiService;
@@ -63,7 +70,7 @@ class GeminiServiceTest {
 
         assertEquals("COMPLETED", response.getStatus());
         assertEquals(cachedValue, response.getContent());
-        verify(redisTemplate.opsForValue()).set(statusKey, "DONE", Duration.ofHours(2));
+        verify(valueOperations).set(statusKey, "DONE", Duration.ofHours(2));
         verify(geminiProvider, never()).callBlocking(anyString(), anyString(), anyString(), any(Approach.class), any(ContentType.class), any(Language.class));
     }
 
@@ -83,6 +90,9 @@ class GeminiServiceTest {
                 request.getContentType(),
                 request.getLanguage()
         )).thenReturn(generatedValue);
+        when(geminiProvider.getProviderName()).thenReturn("Gemini");
+        when(geminiProvider.getModelName()).thenReturn("gemini-2.5-flash");
+        when(aiRequestMetadataRepository.findByCacheKey(cacheKey)).thenReturn(Optional.empty());
 
         AiGenerateResponse response = geminiService.generate(request);
 
@@ -90,10 +100,11 @@ class GeminiServiceTest {
         assertEquals(generatedValue, response.getContent());
         verify(valueOperations).set(cacheKey, generatedValue, Duration.ofDays(30));
         verify(valueOperations).set(statusKey, "DONE", Duration.ofHours(2));
+        verify(aiRequestMetadataRepository, times(1)).save(any());
     }
 
     @Test
-    void generate_CacheMiss_GeminiThrowsException_ReturnsFailedStatus() {
+    void generate_CacheMiss_GeminiThrowsException_ThrowsBadRequestException() {
         String cacheKey = "two-sum_java_bruteforce_hint_1";
         String statusKey = "prefetch-status:" + cacheKey;
 
@@ -108,9 +119,7 @@ class GeminiServiceTest {
                 request.getLanguage()
         )).thenThrow(new RuntimeException("Gemini service unavailable"));
 
-        AiGenerateResponse response = geminiService.generate(request);
-
-        assertEquals("FAILED", response.getStatus());
+        assertThrows(BadRequestException.class, () -> geminiService.generate(request));
         verify(valueOperations).set(statusKey, "FAILED", Duration.ofHours(2));
     }
 }

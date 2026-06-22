@@ -4,7 +4,7 @@ const ProgressApi = {
       const token = await TokenUtil.getValidAccessToken();
       if (!token) throw new Error('Unauthorized');
 
-      const response = await fetch(`${BASE_URL}/api/progress/${problemSlug}`, {
+      const response = await fetch(`${BACKEND_URL}/api/progress/${problemSlug}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -23,7 +23,7 @@ const ProgressApi = {
       const token = await TokenUtil.getValidAccessToken();
       if (!token) throw new Error('Unauthorized');
 
-      const response = await fetch(`${BASE_URL}/api/progress/update`, {
+      const response = await fetch(`${BACKEND_URL}/api/progress/update`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -44,7 +44,7 @@ const ProgressApi = {
       const token = await TokenUtil.getValidAccessToken();
       if (!token) throw new Error('Unauthorized');
 
-      const response = await fetch(`${BASE_URL}/api/progress/solve`, {
+      const response = await fetch(`${BACKEND_URL}/api/progress/solve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

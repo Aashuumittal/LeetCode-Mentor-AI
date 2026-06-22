@@ -9,7 +9,7 @@ const CompanyApi = {
       if (difficulty) params.append('difficulty', difficulty);
       if (topic) params.append('topic', topic);
 
-      const response = await fetch(`${BASE_URL}/api/company-questions?${params.toString()}`, {
+      const response = await fetch(`${BACKEND_URL}/api/company-questions?${params.toString()}`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -32,7 +32,7 @@ const CompanyApi = {
       params.append('slug', slug);
       if (description) params.append('description', description);
 
-      const response = await fetch(`${BASE_URL}/api/company-questions/problem?${params.toString()}`, {
+      const response = await fetch(`${BACKEND_URL}/api/company-questions/problem?${params.toString()}`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
       });

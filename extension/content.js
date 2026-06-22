@@ -6,6 +6,7 @@
   
   // App states
   let currentApproach = 'BRUTEFORCE'; // Default approach
+  let currentProvider = 'default'; // Default AI provider (Groq/OpenRouter)
   let problemProgressList = []; // Progress states of approaches for current problem
   let cachedRevisionQueue = { day3: [], day7: [] };
 
@@ -93,7 +94,7 @@
 
       // Load stats from server to sync
       try {
-        const response = await fetch(`${BASE_URL}/api/user/me`, {
+        const response = await fetch(`${BACKEND_URL}/api/user/me`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${tokens.accessToken}`
@@ -352,7 +353,7 @@
       if (confirm('Are you absolutely sure you want to reset all progress? This will erase your streaks, revision queues, and problem logs forever.')) {
         try {
           const token = await TokenUtil.getValidAccessToken();
-          const response = await fetch(`${BASE_URL}/api/user/reset`, {
+          const response = await fetch(`${BACKEND_URL}/api/user/reset`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`
@@ -383,6 +384,12 @@
     // Clear output
     shadow.getElementById('btn-clear-output').addEventListener('click', () => {
       shadow.getElementById('ai-output-box').innerHTML = 'Console cleared.';
+    });
+
+    // Provider selection dropdown listener
+    shadow.getElementById('ai-provider-select').addEventListener('change', (e) => {
+      currentProvider = e.target.value;
+      console.log('AI Provider changed to:', currentProvider);
     });
 
     // Code Review Action
@@ -662,71 +669,67 @@
       language: language
     };
 
-    let fullText = '';
-
     try {
-      await AiApi.generateStream(
-        req,
-        currentController.signal,
-        (token) => {
-          if (fullText === '') outputBox.innerHTML = '';
-          fullText += token;
-          outputBox.innerHTML = formatMarkdown(fullText);
-          outputBox.scrollTop = outputBox.scrollHeight;
-        },
-        async () => {
-          if (activeAiController === currentController) {
-            activeAiController = null;
-          }
-          console.log('Stream completed for content type:', contentType);
-          
-          // Log progress update back to server
-          if (contentType.startsWith('HINT_') || contentType === 'SOLUTION' || contentType === 'EXPLAIN') {
-            const isHint = contentType.startsWith('HINT_');
-            const num = isHint ? hintCounts[contentType] : 0;
-            
-            const prevProgress = problemProgressList.find(p => p.approach === approach) || {};
-            const prevHintsUnlocked = prevProgress.hintsUnlocked || 0;
-            const prevSolutionViewed = prevProgress.solutionViewed || false;
-            const prevQuestionExplained = prevProgress.questionExplained || false;
+      const content = await AiApi.generate(req, currentProvider, currentController.signal);
+      
+      if (activeAiController === currentController) {
+        activeAiController = null;
+      }
 
-            const updatedHintsUnlocked = Math.max(prevHintsUnlocked, num);
-            const updatedSolutionViewed = prevSolutionViewed || (contentType === 'SOLUTION');
-            const updatedQuestionExplained = prevQuestionExplained || (contentType === 'EXPLAIN');
-
-            const res = await ProgressApi.updateProgress(
-              problem.problemSlug,
-              approach,
-              updatedHintsUnlocked,
-              updatedSolutionViewed,
-              updatedQuestionExplained
-            );
-            
-            if (res.success && res.data) {
-              const idx = problemProgressList.findIndex(p => p.approach === approach);
-              if (idx !== -1) {
-                problemProgressList[idx] = res.data;
-              } else {
-                problemProgressList.push(res.data);
-              }
-              refreshBottomDock();
-            }
-          }
-        },
-        (err) => {
-          if (activeAiController === currentController) {
-            activeAiController = null;
-          }
-          if (err.name !== 'AbortError') {
-            outputBox.innerHTML = `<span class="auth-error-msg">Error streaming suggestion: ${err.message}</span>`;
-          }
+      // Fake typewriter effect on the frontend
+      outputBox.innerHTML = '';
+      let partialText = '';
+      for (let i = 0; i < content.length; i++) {
+        if (currentController.signal.aborted) {
+          return;
         }
-      );
+        partialText += content[i];
+        outputBox.innerHTML = formatMarkdown(partialText);
+        outputBox.scrollTop = outputBox.scrollHeight;
+        await new Promise(resolve => setTimeout(resolve, 8));
+      }
+
+      console.log('Generation completed for content type:', contentType);
+      
+      // Log progress update back to server
+      if (contentType.startsWith('HINT_') || contentType === 'SOLUTION' || contentType === 'EXPLAIN') {
+        const isHint = contentType.startsWith('HINT_');
+        const num = isHint ? hintCounts[contentType] : 0;
+        
+        const prevProgress = problemProgressList.find(p => p.approach === approach) || {};
+        const prevHintsUnlocked = prevProgress.hintsUnlocked || 0;
+        const prevSolutionViewed = prevProgress.solutionViewed || false;
+        const prevQuestionExplained = prevProgress.questionExplained || false;
+
+        const updatedHintsUnlocked = Math.max(prevHintsUnlocked, num);
+        const updatedSolutionViewed = prevSolutionViewed || (contentType === 'SOLUTION');
+        const updatedQuestionExplained = prevQuestionExplained || (contentType === 'EXPLAIN');
+
+        const res = await ProgressApi.updateProgress(
+          problem.problemSlug,
+          approach,
+          updatedHintsUnlocked,
+          updatedSolutionViewed,
+          updatedQuestionExplained
+        );
+        
+        if (res.success && res.data) {
+          const idx = problemProgressList.findIndex(p => p.approach === approach);
+          if (idx !== -1) {
+            problemProgressList[idx] = res.data;
+          } else {
+            problemProgressList.push(res.data);
+          }
+          refreshBottomDock();
+        }
+      }
     } catch (e) {
       if (activeAiController === currentController) {
         activeAiController = null;
       }
-      outputBox.innerHTML = `<span class="auth-error-msg">Failed to connect: ${e.message}</span>`;
+      if (e.name !== 'AbortError') {
+        outputBox.innerHTML = `<span class="auth-error-msg">Error generating suggestion: ${e.message}</span>`;
+      }
     }
   }
 

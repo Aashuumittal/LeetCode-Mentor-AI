@@ -12,7 +12,7 @@
 
   "host_permissions": [
     "https://leetcode.com/*",
-    "http://51.20.6.243:9094/*"
+    "http://16.192.43.42:9094/*"
   ],
 
   "background": {

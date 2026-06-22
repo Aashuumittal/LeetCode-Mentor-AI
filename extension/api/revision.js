@@ -4,7 +4,7 @@ const RevisionApi = {
       const token = await TokenUtil.getValidAccessToken();
       if (!token) throw new Error('Unauthorized');
 
-      const response = await fetch(`${BASE_URL}/api/revision/queue`, {
+      const response = await fetch(`${BACKEND_URL}/api/revision/queue`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -23,7 +23,7 @@ const RevisionApi = {
       const token = await TokenUtil.getValidAccessToken();
       if (!token) throw new Error('Unauthorized');
 
-      const response = await fetch(`${BASE_URL}/api/revision/complete`, {
+      const response = await fetch(`${BACKEND_URL}/api/revision/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -44,7 +44,7 @@ const RevisionApi = {
       const token = await TokenUtil.getValidAccessToken();
       if (!token) throw new Error('Unauthorized');
 
-      const response = await fetch(`${BASE_URL}/api/revision/pending`, {
+      const response = await fetch(`${BACKEND_URL}/api/revision/pending`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`

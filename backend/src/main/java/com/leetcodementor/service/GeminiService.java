@@ -37,7 +37,7 @@ public class GeminiService {
             log.info("Redis cache hit for Gemini request with key: {}", cacheKey);
             redisTemplate.opsForValue().set(statusKey, "DONE", Duration.ofHours(2));
             return AiGenerateResponse.builder()
-                    .status("SUCCESS")
+                    .status("COMPLETED")
                     .content(cachedResponse)
                     .build();
         }
@@ -59,7 +59,7 @@ public class GeminiService {
             redisTemplate.opsForValue().set(statusKey, "DONE", Duration.ofHours(2));
 
             return AiGenerateResponse.builder()
-                    .status("SUCCESS")
+                    .status("COMPLETED")
                     .content(content)
                     .build();
         } catch (Exception e) {

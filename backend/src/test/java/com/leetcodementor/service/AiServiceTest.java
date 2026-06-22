@@ -60,7 +60,7 @@ class AiServiceTest {
 
         AiGenerateResponse response = aiService.generate(request);
 
-        assertEquals("SUCCESS", response.getStatus());
+        assertEquals("COMPLETED", response.getStatus());
         assertEquals(cachedValue, response.getContent());
         verify(aiOrchestratorService, never()).prefetchAll(anyString(), anyString(), anyString(), any(Language.class));
     }

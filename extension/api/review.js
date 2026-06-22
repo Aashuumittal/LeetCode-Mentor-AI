@@ -4,7 +4,7 @@ const ReviewApi = {
       const token = await TokenUtil.getValidAccessToken();
       if (!token) throw new Error('Unauthorized');
 
-      const response = await fetch(`${BASE_URL}/api/review/code`, {
+      const response = await fetch(`${BACKEND_URL}/api/review/code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

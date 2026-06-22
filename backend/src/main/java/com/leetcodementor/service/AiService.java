@@ -43,7 +43,7 @@ public class AiService {
             log.info("Redis cache hit for key: {}", cacheKey);
             redisTemplate.opsForValue().set(statusKey, "DONE", Duration.ofHours(2));
             return AiGenerateResponse.builder()
-                    .status("SUCCESS")
+                    .status("COMPLETED")
                     .content(cachedResponse)
                     .build();
         }

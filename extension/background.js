@@ -1,4 +1,4 @@
-const BACKEND_URL = 'http://localhost:9094';
+const BACKEND_URL = 'http://16.192.43.42:9094';
 
 // Listen to runtime messages
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

@@ -1,9 +1,9 @@
-const BASE_URL = 'http://localhost:9094';
+const BACKEND_URL = "http://16.192.43.42:9094";
 
 const AuthApi = {
   register: async (name, email, password, preferredLanguage) => {
     try {
-      const response = await fetch(`${BASE_URL}/api/auth/register`, {
+      const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password, preferredLanguage })
@@ -23,7 +23,7 @@ const AuthApi = {
 
   login: async (email, password) => {
     try {
-      const response = await fetch(`${BASE_URL}/api/auth/login`, {
+      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -45,7 +45,7 @@ const AuthApi = {
     try {
       const tokens = await StorageUtil.getTokens();
       if (tokens.refreshToken) {
-        await fetch(`${BASE_URL}/api/auth/logout`, {
+        await fetch(`${BACKEND_URL}/api/auth/logout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refreshToken: tokens.refreshToken })

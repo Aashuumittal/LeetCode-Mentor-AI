@@ -123,7 +123,13 @@
           <div class="output-container">
             <div class="output-header">
               <span id="output-title">AI Assistant Console</span>
-              <button class="text-btn" id="btn-clear-output" title="Clear">Clear</button>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <select id="ai-provider-select" style="background: rgba(255,255,255,0.05); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 2px 6px; font-size: 11px; outline: none; cursor: pointer;">
+                  <option value="default">Default (Groq/OpenRouter)</option>
+                  <option value="gemini">Gemini 2.5 Flash</option>
+                </select>
+                <button class="text-btn" id="btn-clear-output" title="Clear">Clear</button>
+              </div>
             </div>
             <div id="company-tags-container" class="company-tags-container hidden"></div>
             <div class="output-body markdown-body" id="ai-output-box">

@@ -373,11 +373,7 @@
       shadow.getElementById('ai-output-box').innerHTML = 'Console cleared.';
     });
 
-    // AI provider selection dropdown
-    shadow.getElementById('ai-provider-select').addEventListener('change', (e) => {
-      currentProvider = e.target.value;
-      console.log('AI Provider changed to:', currentProvider);
-    });
+    // AI provider selector has been removed
 
     // Code Review Action
     shadow.getElementById('btn-run-code-review').addEventListener('click', triggerCodeReview);
@@ -561,22 +557,74 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  async function typewriteText(element, text) {
+  async function typewriteText(element, text, signal) {
     element.innerHTML = '';
+    let current = '';
     for (const ch of text) {
-      element.innerHTML += ch;
+      if (signal && signal.aborted) {
+        return;
+      }
+      current += ch;
+      element.textContent = current;
       await sleep(8);
     }
+    if (signal && signal.aborted) {
+      return;
+    }
+    element.innerHTML = formatMarkdown(text);
+  }
+
+  function highlightCode(code, lang) {
+    if (!code) return '';
+    
+    let escaped = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    const tokenTypes = [];
+    
+    // Multi-line comments
+    escaped = escaped.replace(/(\/\*[\s\S]*?\*\/)/g, (match) => {
+      tokenTypes.push({ type: 'comment', value: match });
+      return `__TOKEN_${tokenTypes.length - 1}__`;
+    });
+    // Single line comments
+    escaped = escaped.replace(/(\/\/.*|#.*)/g, (match) => {
+      tokenTypes.push({ type: 'comment', value: match });
+      return `__TOKEN_${tokenTypes.length - 1}__`;
+    });
+    
+    // Strings
+    escaped = escaped.replace(/(".*?"|'.*?'|`.*?`)/g, (match) => {
+      tokenTypes.push({ type: 'string', value: match });
+      return `__TOKEN_${tokenTypes.length - 1}__`;
+    });
+
+    // Keywords
+    const keywords = /\b(class|public|private|protected|static|final|void|int|double|float|long|boolean|char|byte|short|return|if|else|for|while|do|switch|case|break|continue|new|interface|extends|implements|import|package|try|catch|finally|throw|throws|const|var|let|function|def|self|elif|in|is|not|and|or|lambda|None|True|False|unsigned|struct|template|typename)\b/g;
+    escaped = escaped.replace(keywords, '<span class="code-keyword">$1</span>');
+
+    // Numbers
+    escaped = escaped.replace(/\b(\d+)\b/g, '<span class="code-number">$1</span>');
+
+    // Restore comments and strings
+    for (let i = 0; i < tokenTypes.length; i++) {
+      const token = tokenTypes[i];
+      const cssClass = token.type === 'comment' ? 'code-comment' : 'code-string';
+      escaped = escaped.replace(`__TOKEN_${i}__`, `<span class="${cssClass}">${token.value}</span>`);
+    }
+
+    return escaped;
   }
 
   let hintCounts = { 'HINT_1': 1, 'HINT_2': 2, 'HINT_3': 3, 'HINT_4': 4 };
   async function triggerAiHint(contentType) {
     if (activeAiController) {
-      // Abort active AI request (stream or review) if user clicks another button
       activeAiController.abort();
     }
-    const currentController = new AbortController();
-    activeAiController = currentController;
+    activeAiController = new AbortController();
+    const currentController = activeAiController;
     
     const problem = ScraperUtil.scrapeAll();
     const approach = currentApproach;
@@ -585,6 +633,7 @@
     const language = user ? user.preferredLanguage : 'JAVA';
 
     const outputBox = shadow.getElementById('ai-output-box');
+    outputBox.innerHTML = '';
     outputBox.innerHTML = '<span class="pulse-text">Generating answer...</span>';
 
     // Highlight active dock button
@@ -628,7 +677,6 @@
                 </div>
               `;
             } else {
-              // AI returned no data for this problem
               companyTagsContainer.innerHTML = `
                 <div class="company-tags-title">Target Companies:</div>
                 <div class="company-tags-list">
@@ -678,7 +726,11 @@
         const { status, content } = res.data;
         if (status === 'DONE' && content) {
           // Play typewriter effect
-          await typewriteText(outputBox, content);
+          await typewriteText(outputBox, content, currentController.signal);
+
+          if (currentController.signal.aborted) {
+            return;
+          }
 
           // Log progress update back to server
           if (contentType.startsWith('HINT_') || contentType === 'SOLUTION' || contentType === 'EXPLAIN') {
@@ -722,7 +774,7 @@
       if (activeAiController === currentController) {
         activeAiController = null;
       }
-      if (e.name !== 'AbortError') {
+      if (e.name !== 'AbortError' && !currentController.signal.aborted) {
         outputBox.innerHTML = `<span class="auth-error-msg">Unable to generate answer right now. Please try again.</span>`;
       }
     }
@@ -767,13 +819,14 @@
     if (activeAiController) {
       activeAiController.abort();
     }
-    const currentController = new AbortController();
-    activeAiController = currentController;
+    activeAiController = new AbortController();
+    const currentController = activeAiController;
 
     const lang = getScrapedLanguage();
     const problem = ScraperUtil.scrapeAll();
 
     const outputBox = shadow.getElementById('code-review-output-box');
+    outputBox.innerHTML = '';
     outputBox.innerHTML = '<span class="pulse-text">AI is performing a detailed Code Review...</span>';
 
     try {
@@ -831,6 +884,9 @@
           formattedReview += `**Illustration/Example:** ${res.data.betterApproach.example}\n`;
         }
 
+        if (currentController.signal.aborted) {
+          return;
+        }
         outputBox.innerHTML = formatMarkdown(formattedReview);
       } else {
         outputBox.innerHTML = `<span class="auth-error-msg">Review failed: ${res.message || 'Verification Error'}</span>`;
@@ -991,13 +1047,14 @@
     escaped = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
       const idx = codeBlocks.length;
       const language = lang || 'Code';
+      const highlightedCode = highlightCode(code.trim(), language.toLowerCase());
       codeBlocks.push(`
         <div class="code-block-container">
           <div class="code-block-header">
             <span class="code-block-lang">${language.toUpperCase()}</span>
             <button class="code-block-copy-btn">Copy</button>
           </div>
-          <pre><code class="language-${language}">${code.trim()}</code></pre>
+          <pre><code class="language-${language}">${highlightedCode}</code></pre>
         </div>
       `);
       return `__CODE_BLOCK_PLACEHOLDER_${idx}__`;

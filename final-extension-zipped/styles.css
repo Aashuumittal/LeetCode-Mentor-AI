@@ -1378,7 +1378,7 @@
 
 .ai-card-header {
   font-family: 'Poppins', sans-serif;
-  font-size: 18px;
+  font-size: 21px;
   font-weight: 600;
   color: #b267ff;
   margin-bottom: 12px;
@@ -1387,7 +1387,7 @@
 }
 
 .ai-card-header.main-header {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
   color: #ffffff;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -1397,6 +1397,14 @@
   font-size: 15px;
   line-height: 1.8;
   color: #cbd5e1;
+}
+
+.ai-card-content p {
+  margin-bottom: 12px;
+}
+
+.ai-card-content p:last-child {
+  margin-bottom: 0;
 }
 
 .ai-card.intro-card {
@@ -1445,4 +1453,23 @@
 
 .table-container tr:last-child td {
   border-bottom: none;
+}
+
+/* Syntax Highlighting Styles */
+.code-keyword {
+  color: #ff79c6;
+  font-weight: 600;
+}
+
+.code-string {
+  color: #50fa7b;
+}
+
+.code-comment {
+  color: #6272a4;
+  font-style: italic;
+}
+
+.code-number {
+  color: #bd93f9;
 }

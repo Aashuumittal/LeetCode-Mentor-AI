@@ -129,13 +129,13 @@ This keeps you motivated and consistent.
 
 We design LeetCode Mentor AI with state-of-the-art visual excellence:
 
-| 🏠 Home Dashboard | 🔍 Explain Question |
+| 🔍 Explain Question | 🧠 Revise Question |
 | :---: | :---: |
-| ![Home Dashboard](assets/home.png) | ![Explain Question UI](assets/explain.png) |
+| ![Explain Question](assets/explain.png) | ![Revise Questions](assets/revise.png) |
 
 | 📝 AI Code Review | 💡 Progressive Hint System |
 | :---: | :---: |
-| ![AI Code Review UI](assets/code-review.png) | ![Progressive Hints](assets/hints.png) |
+| ![AI Code Review UI](assets/codereview.png) | ![Progressive Hints](assets/hint.png) |
 
 ---
 

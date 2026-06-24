@@ -1,12 +1,11 @@
 const AiApi = {
-  generate: async (requestData, provider, signal) => {
+  generate: async (requestData, signal) => {
     const token = await TokenUtil.getValidAccessToken();
     if (!token) {
       throw new Error('User is not authenticated. Please log in.');
     }
 
-    const endpoint = provider === 'gemini' ? '/api/ai/gemini/generate' : '/api/ai/generate';
-    return await ApiBridge.request(endpoint, {
+    return await ApiBridge.request('/api/ai/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

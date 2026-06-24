@@ -308,23 +308,43 @@ public class GroqService {
     public String blockingExplainQuestion(String title, String slug, String description) {
         String systemPrompt = "You are LeetCode Mentor AI, a world-class DSA coach. Do NOT write code implementations.";
         String userPrompt = String.format(
-                "Explain the following LeetCode problem:\nTitle: %s (Slug: %s)\nDescription:\n%s\n\n" +
-                "Return clean markdown with these sections in order:\n" +
-                "### Problem Summary\n### Intuition\n### Example\n### Approaches\n### Complexity\n### Companies Asked\n### Interview Priority",
+                "Explain the following LeetCode problem under 150 words total.\n" +
+                "Title: %s (Slug: %s)\nDescription:\n%s\n\n" +
+                "You MUST NOT discuss any approaches (bruteforce, optimized, optimal, etc.), time/space complexity analysis, or long essays.\n" +
+                "Return clean markdown with exactly these sections, in this order, and nothing else:\n" +
+                "## Problem Summary\n" +
+                "[2-3 lines maximum explaining the problem clearly]\n\n" +
+                "## Example\n" +
+                "[One simple example from the problem, explained step by step]\n\n" +
+                "## Key Observations\n" +
+                "[Maximum 3 short bullet points only]\n\n" +
+                "## Companies Asked\n" +
+                "[List companies known to ask this problem, with estimated frequency, kept extremely brief]\n\n" +
+                "## Interview Priority\n" +
+                "[High, Medium, or Low only]\n\n" +
+                "Total word count MUST be under 150 words.",
                 title, slug, description);
         return blockChatCompletion(systemPrompt, userPrompt);
     }
 
     public String blockingGenerateHint(String title, String slug, String description, Approach approach, int hintLevel) {
-        String systemPrompt = "You are LeetCode Mentor AI, a world-class DSA coach.";
+        String systemPrompt = "You are LeetCode Mentor AI, a world-class DSA coach. Help the user learn through guidance rather than giving code answers immediately.";
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("Provide Hint %d for the %s approach of:\nTitle: %s\nDescription:\n%s\n\n",
                 hintLevel, approach.name(), title, description));
         switch (hintLevel) {
-            case 1 -> sb.append("Keep it high-level and conceptual. No code, no data structures yet.");
-            case 2 -> sb.append("Suggest the appropriate data structure(s) and algorithmic framework. No code.");
-            case 3 -> sb.append("Explain state transitions, loop invariants, pointer moves. Pseudocode only, no real code.");
-            case 4 -> sb.append("Dry-run on a small example and list critical edge cases. No code.");
+            case 1 -> sb.append("Guidelines:\n")
+                    .append("1. Provide MAXIMUM 2 lines of text.\n")
+                    .append("2. Give a high-level conceptual direction only. Do NOT mention specific data structures, algorithms, or code.");
+            case 2 -> sb.append("Guidelines:\n")
+                    .append("1. Provide MAXIMUM 3 lines of text.\n")
+                    .append("2. Reveal one small, important observation. Do NOT reveal the full algorithm or approach. No code.");
+            case 3 -> sb.append("Guidelines:\n")
+                    .append("1. Provide MAXIMUM 5 lines of text.\n")
+                    .append("2. Reveal the main implementation idea or core logic. No code.");
+            case 4 -> sb.append("Guidelines:\n")
+                    .append("1. Provide MAXIMUM 8 lines of text.\n")
+                    .append("2. Reveal the full algorithm/logic steps and call out important edge cases (e.g. empty input, overflow, boundary checks). No code.");
             default -> throw new IllegalArgumentException("Invalid hint level: " + hintLevel);
         }
         return blockChatCompletion(systemPrompt, sb.toString());
@@ -346,8 +366,17 @@ public class GroqService {
         String systemPrompt = "You are LeetCode Mentor AI, a world-class DSA coach.";
         String userPrompt = String.format(
                 "Provide the full %s solution in %s for:\nTitle: %s (Slug: %s)\nDescription:\n%s\n\n" +
-                "Write clean, complete, well-commented code. Explain the structure briefly. State Time and Space complexity.",
-                approach.name(), language.name(), title, slug, description);
+                "You MUST return clean markdown. You MUST structure your response with the following headers exactly (in this order) and nothing else:\n" +
+                "## Idea\n" +
+                "[A very short and concise explanation of the idea]\n\n" +
+                "## %s Code\n" +
+                "[Complete and clean implementation in a markdown code block]\n\n" +
+                "## Time Complexity\n" +
+                "[Provide the time complexity class like O(N) with a 1-line justification]\n\n" +
+                "## Space Complexity\n" +
+                "[Provide the space complexity class like O(1) with a 1-line justification]\n\n" +
+                "Do NOT include any essays, long discussions, or other headers.",
+                approach.name(), language.name(), title, slug, description, language.name());
         return blockChatCompletion(systemPrompt, userPrompt);
     }
 }

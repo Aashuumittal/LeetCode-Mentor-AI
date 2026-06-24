@@ -3,10 +3,10 @@
   let shadow = null;
   let currentSlug = null;
   let activeAiController = null;
+  let activeAiGeneration = 0; // Monotonically increasing token; guards against stale async writes from superseded requests (e.g. typewriter, company tags) reaching the DOM out of order.
   
   // App states
   let currentApproach = 'BRUTEFORCE'; // Default approach
-  let currentProvider = 'default'; // AI provider: 'default' (Groq/OpenRouter) or 'gemini'
   let problemProgressList = []; // Progress states of approaches for current problem
   let cachedRevisionQueue = { day3: [], day7: [] };
 
@@ -557,21 +557,31 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  async function typewriteText(element, text, signal) {
+  async function typewriteText(element, text, signal, generation) {
+    if (signal && signal.aborted) return;
+    if (generation !== undefined && generation !== activeAiGeneration) return;
+
     element.innerHTML = '';
+    element.style.opacity = '1';
     let current = '';
     for (const ch of text) {
-      if (signal && signal.aborted) {
-        return;
-      }
+      if (signal && signal.aborted) return;
+      if (generation !== undefined && generation !== activeAiGeneration) return;
       current += ch;
       element.textContent = current;
       await sleep(8);
     }
-    if (signal && signal.aborted) {
-      return;
-    }
+    if (signal && signal.aborted) return;
+    if (generation !== undefined && generation !== activeAiGeneration) return;
+
+    // Smooth the plain-text -> rendered-markdown handoff instead of an instant snap.
+    element.style.transition = 'opacity 120ms ease-out';
+    element.style.opacity = '0';
+    await sleep(120);
+    if (signal && signal.aborted) return;
+    if (generation !== undefined && generation !== activeAiGeneration) return;
     element.innerHTML = formatMarkdown(text);
+    element.style.opacity = '1';
   }
 
   function highlightCode(code, lang) {
@@ -625,15 +635,20 @@
     }
     activeAiController = new AbortController();
     const currentController = activeAiController;
-    
+    const myGeneration = ++activeAiGeneration; // Every new request gets a unique, increasing token; only the latest one is allowed to touch the DOM.
+
+    const isStale = () => currentController.signal.aborted || myGeneration !== activeAiGeneration;
+
     const problem = ScraperUtil.scrapeAll();
     const approach = currentApproach;
     
     const user = await StorageUtil.getUser();
     const language = user ? user.preferredLanguage : 'JAVA';
 
+    if (isStale()) return;
+
     const outputBox = shadow.getElementById('ai-output-box');
-    outputBox.innerHTML = '';
+    outputBox.style.opacity = '1';
     outputBox.innerHTML = '<span class="pulse-text">Generating answer...</span>';
 
     // Highlight active dock button
@@ -661,6 +676,7 @@
             problem.problemDescription
           )
           .then(res => {
+            if (isStale()) return; // A newer request superseded this one; never write stale company tags.
             if (res && res.success && res.data && res.data.length > 0) {
               const companiesList = res.data.map(item => ({
                 companyName: item.company,
@@ -686,6 +702,7 @@
             }
           })
           .catch(err => {
+            if (isStale()) return;
             console.error('Error fetching company tags:', err);
             companyTagsContainer.innerHTML = `
               <div class="company-tags-title">Target Companies:</div>
@@ -713,10 +730,10 @@
     };
 
     try {
-      const res = await AiApi.generate(req, currentProvider, currentController.signal);
-      
-      if (currentController.signal.aborted) {
-        return;
+      const res = await AiApi.generate(req, currentController.signal);
+
+      if (isStale()) {
+        return; // Superseded by a newer click; previous request must never update the DOM again.
       }
       if (activeAiController === currentController) {
         activeAiController = null;
@@ -725,10 +742,10 @@
       if (res.success && res.data) {
         const { status, content } = res.data;
         if (status === 'DONE' && content) {
-          // Play typewriter effect
-          await typewriteText(outputBox, content, currentController.signal);
+          // Wait for the complete response, then run the typewriter on plain text, then render markdown once.
+          await typewriteText(outputBox, content, currentController.signal, myGeneration);
 
-          if (currentController.signal.aborted) {
+          if (isStale()) {
             return;
           }
 
@@ -753,7 +770,9 @@
               updatedSolutionViewed,
               updatedQuestionExplained
             );
-            
+
+            if (isStale()) return;
+
             if (progressRes.success && progressRes.data) {
               const idx = problemProgressList.findIndex(p => p.approach === approach);
               if (idx !== -1) {
@@ -765,16 +784,18 @@
             }
           }
         } else {
+          if (isStale()) return;
           outputBox.innerHTML = `<span class="auth-error-msg">Unable to generate answer right now. Please try again.</span>`;
         }
       } else {
+        if (isStale()) return;
         outputBox.innerHTML = `<span class="auth-error-msg">Unable to generate answer right now. Please try again.</span>`;
       }
     } catch (e) {
       if (activeAiController === currentController) {
         activeAiController = null;
       }
-      if (e.name !== 'AbortError' && !currentController.signal.aborted) {
+      if (e.name !== 'AbortError' && !isStale()) {
         outputBox.innerHTML = `<span class="auth-error-msg">Unable to generate answer right now. Please try again.</span>`;
       }
     }
